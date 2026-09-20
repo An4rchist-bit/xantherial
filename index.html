@@ -139,7 +139,6 @@ h2 em{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;t
 @media(max-width:900px){.file-grid{grid-template-columns:1fr}.spec{border-left:none;border-top:1px solid var(--hair);padding:20px 0 0}}
 
 /* ---------- currently ---------- */
-.now{margin-top:clamp(56px,9vh,84vh);border-top:1px solid var(--hair);padding-top:30px}
 .now{margin-top:clamp(56px,9vh,84px);border-top:1px solid var(--hair);padding-top:30px}
 .now-t{color:var(--accent);margin-bottom:14px}
 .now-row{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:baseline;padding:16px 0;border-bottom:1px solid var(--hair)}
@@ -304,6 +303,11 @@ canvas{display:block;width:100%}
 #speak::placeholder{color:var(--ink-dim);opacity:.5;letter-spacing:.3em}
 #speak:focus{border-bottom-color:var(--accent)}
 #speak:disabled{opacity:.4}
+#handle{background:transparent;border:none;outline:none;border-bottom:1px solid var(--hair);width:min(280px,70vw);
+  padding:8px 0;text-align:center;font-family:'Space Mono',monospace;font-size:.78rem;letter-spacing:.22em;
+  color:var(--ink);caret-color:var(--accent);transition:border-color .3s}
+#handle::placeholder{color:var(--ink-dim);opacity:.5}
+#handle:focus{border-bottom-color:var(--accent)}
 #sealWrap{margin-top:60px;opacity:0;transform:translateY(14px);visibility:hidden;transition:.6s ease}
 #sealWrap.show{opacity:1;transform:none;visibility:visible}
 .stamp{display:inline-flex;flex-direction:column;gap:8px;position:relative;border:1px solid var(--accent);color:var(--accent);
@@ -317,6 +321,12 @@ canvas{display:block;width:100%}
 .linky{background:none;border:none;border-bottom:1px solid var(--hair);cursor:pointer;color:var(--ink-dim);
   font-size:10px;letter-spacing:.25em;padding:5px 2px;font-family:'Space Mono',monospace;transition:color .3s,border-color .3s}
 .linky:hover{color:var(--accent);border-color:var(--accent-soft)}
+#ledgerWrap{margin-top:44px;opacity:0;transform:translateY(10px);visibility:hidden;transition:.6s ease .3s;display:flex;flex-direction:column;align-items:center}
+#ledgerWrap.show{opacity:1;transform:none;visibility:visible}
+#ledgerWrap .lt{color:var(--accent);margin-bottom:14px;font-size:9px}
+#witnessRoll{display:flex;flex-direction:column;gap:7px;align-items:center}
+.witness{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.24em;color:var(--ink-dim)}
+.witness.more{opacity:.55}
 
 /* ---------- footer ---------- */
 footer{border-top:1px solid var(--hair);padding:44px 0 54px;position:relative;z-index:2}
@@ -478,12 +488,12 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
     <span class="chnum" aria-hidden="true">02</span>
     <div class="wrap">
       <div class="sec-head rv"><p class="kicker mono">§ 02 · THE ARENA</p><p class="mono dim">02 / 07</p></div>
-      <h2 class="rv" style="--d:.06s">Fair <em>fight</em></h2>
-      <p class="lead rv" style="--d:.12s">A little reaction duel, no scripting in my favor. When I flash red, dodge. When I stumble, hit me. That's the whole game. I can be beaten. That's the point.</p>
+      <h2 class="rv" style="--d:.06s">It <em>learns</em></h2>
+      <p class="lead rv" style="--d:.12s">A duel that pays attention. Dodge with K, block with L, strike with J when I stumble. I have six attacks, I watch your habits, and I pick the ones that punish yours. The more predictable you are, the more this hurts. Stay loose and you'll be fine. Probably.</p>
 
       <div class="demo rv" style="--d:.18s;margin-top:clamp(40px,7vh,60px)">
-        <div class="demo-head"><span class="l mono">PLAYABLE · REACTION DUEL</span><span class="r mono"><span class="pulse"></span>J STRIKE · K DODGE · L BLOCK</span></div>
-        <canvas id="duelCv" data-hover aria-label="Playable duel minigame"></canvas>
+        <div class="demo-head"><span class="l mono">PLAYABLE · ADAPTIVE DUEL</span><span class="r mono"><span class="pulse"></span>J STRIKE · K DODGE · L BLOCK</span></div>
+        <canvas id="duelCv" data-hover aria-label="Playable adaptive duel minigame"></canvas>
         <ul id="duelLog" aria-live="polite"></ul>
         <div class="demo-foot">
           <div style="display:flex;gap:12px;flex-wrap:wrap">
@@ -502,13 +512,13 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
   <!-- ============ 4 · THE EVIDENCE ============ -->
   <!--
     YOUR MEDIA GOES HERE
-    1. Make a folder named "builds" and a folder named "clips" next to this html file
-    2. Drop your screenshots into builds (jpg or png) and your clips into clips (mp4)
-    3. In each slot below, change the img src to your file, like src="builds/keep.jpg"
-    4. For the video slots, add this line inside the video tag:
+    Folders can't be dragged in on GitHub. Do this instead:
+    1. Add file -> Create new file -> name it clips/.gitkeep -> commit (this makes the folder)
+    2. Repeat with builds/.gitkeep
+    3. Click INTO the clips folder -> Add file -> Upload files -> drag your mp4 FILES in
+    4. Add a source line to each video below, like:
        <source src="clips/your-file.mp4" type="video/mp4">
-    5. Edit the captions to say what the thing actually is
-    Everything else, the frames, the lightbox, the layout, keeps working on its own
+    5. For images, replace the whole long src="data:image/svg..." with src="builds/your-file.jpg"
   -->
   <section id="evidence" class="chapter flip">
     <span class="chnum" aria-hidden="true">03</span>
@@ -669,6 +679,10 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
       <div class="inrow rv" style="--d:.18s">
         <input id="speak" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SPEAK HERE" aria-label="Type the name Xantherial">
       </div>
+      <div class="inrow rv" style="--d:.22s">
+        <input id="handle" autocomplete="off" spellcheck="false" maxlength="24" placeholder="OPTIONAL · SIGN THE LEDGER" aria-label="Your handle, optional">
+      </div>
+      <p class="mono dim rv" style="--d:.24s;font-size:8px;letter-spacing:.2em;margin-top:16px">SEALS ARE KEPT BY YOUR BROWSER · NOTHING LEAVES THIS PAGE</p>
       <div id="sealWrap">
         <div class="stamp">
           <span>COVENANT SEALED</span><i></i>
@@ -680,6 +694,10 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
       <div id="againWrap">
         <p class="mono dim">TIMES SPOKEN THIS VISIT: <span id="spokenCount">0</span></p>
         <button id="again" class="linky" data-hover>BREAK THE SEAL · SPEAK AGAIN</button>
+      </div>
+      <div id="ledgerWrap">
+        <p class="mono lt">THE LEDGER · THIS BROWSER</p>
+        <div id="witnessRoll"></div>
       </div>
     </div>
   </section>
@@ -1170,7 +1188,9 @@ function watch(el,cb){
   io.observe(el);
 }
 
-/* ================= THE DUEL · adaptive, it studies you ================= */
+/* ================================================================
+   THE DUEL · adaptive, it studies you
+   ================================================================ */
 let duelGg=()=>{};
 (function(){
   const cv=$('#duelCv'),ctx=cv.getContext('2d');
@@ -1201,7 +1221,7 @@ let duelGg=()=>{};
     you:100,xan:100,over:false,won:false,
     phase:'idle',pt:0,wait:1500,
     atk:null,dodgeT:-1e4,blockT:-1e4,
-    slash:0,shake:0,counter:0,
+    slash:0,shake:0,counter:0,ggUsed:false,
     scoreYou:0,scoreXan:0,round:1,pace:1,
     ghosts:[],floats:[],read:0,readSaid:{},
     hab:{dodges:0,early:0,blocks:0,baits:0,impatient:0}
@@ -1392,6 +1412,7 @@ let duelGg=()=>{};
   }
   $('#btnStrike').addEventListener('click',strike)
   $('#btnDodge').addEventListener('click',dodge)
+  $('#btnBlock').addEventListener('click',block)
   $('#btnTaunt').addEventListener('click',()=>{
     if(S.over) return
     log('YOU TAUNT','me')
@@ -1825,7 +1846,7 @@ let duelGg=()=>{};
   addEventListener('keydown',e=>{ if(e.key==='Escape') lb.classList.remove('on') });
 })();
 
-/* ================= THE COVENANT ================= */
+/* ================= THE COVENANT + LEDGER ================= */
 (function(){
   const slotsWrap=$('#slots'),input=$('#speak');
   NAME.split('').forEach(ch=>{
@@ -1835,6 +1856,32 @@ let duelGg=()=>{};
   });
   const slots=$$('#slots .slot');
   let spoken=0,sealed=false,times=0,errToastShown=false;
+
+  /* the ledger · kept by this browser, nothing leaves the page */
+  const LEDGER_KEY='xanLedger'
+  function loadLedger(){ try{return JSON.parse(localStorage.getItem(LEDGER_KEY)||'[]')}catch(e){return []} }
+  function saveLedger(l){ try{localStorage.setItem(LEDGER_KEY,JSON.stringify(l))}catch(e){} }
+  function renderLedger(){
+    const l=loadLedger()
+    if(!l.length) return
+    $('#ledgerWrap').classList.add('show')
+    const roll=$('#witnessRoll')
+    roll.innerHTML=''
+    l.slice(-8).reverse().forEach(w=>{
+      const d=document.createElement('p')
+      d.className='witness'
+      d.textContent=w.h+' · '+w.d
+      roll.appendChild(d)
+    })
+    if(l.length>8){
+      const m=document.createElement('p')
+      m.className='witness more'
+      m.textContent='+'+(l.length-8)+' EARLIER SEALS'
+      roll.appendChild(m)
+    }
+  }
+  renderLedger()
+
   input.addEventListener('input',()=>{
     if(sealed) return;
     let v=input.value.toUpperCase().replace(/[^A-Z]/g,'');
@@ -1869,12 +1916,18 @@ let duelGg=()=>{};
       $('#sealWrap').classList.add('show');
       times++;$('#spokenCount').textContent=times;
       $('#againWrap').classList.add('show');
+      const h=($('#handle').value.trim()||'ANONYMOUS').toUpperCase().slice(0,24)
+      const l=loadLedger()
+      l.push({h,d:new Date().toLocaleDateString(undefined,{month:'short',day:'numeric'}).toUpperCase()})
+      saveLedger(l)
+      renderLedger()
       toast('THE NAME ACCEPTS YOU. WELCOME IN.');
     },1250);
   }
   $('#again').addEventListener('click',()=>{
     sealed=false;spoken=0;
     input.disabled=false;input.value='';
+    $('#handle').value='';
     slots.forEach(s=>s.classList.remove('lit','wave','pop'));
     $('#sealWrap').classList.remove('show');
     $('#againWrap').classList.remove('show');
