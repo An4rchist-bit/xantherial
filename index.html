@@ -1472,35 +1472,15 @@ let duelGg=()=>{};
     for(let x=20;x<Wd;x+=44){ ctx.beginPath(); ctx.moveTo(x,gyv); ctx.lineTo(x,gyv+8); ctx.stroke() }
     dashGhosts.forEach(gx=>{
       ctx.globalAlpha=.25
-      if(skinReady){
-        ctx.imageSmoothingEnabled=false
-        ctx.drawImage(skinImg,8,8,8,8,gx-17,gyv-32,34,34)
-      } else {
-        ctx.fillStyle='#ededed'
-        ctx.beginPath(); ctx.arc(gx,gyv-15,13,0,Math.PI*2); ctx.fill()
-      }
+      ctx.fillStyle='#ededed'
+      ctx.beginPath(); ctx.arc(gx,gyv-15,13,0,Math.PI*2); ctx.fill()
       ctx.globalAlpha=1
     })
     const bob=Math.sin(now/620)*3
     const windP=S.phase==='wind'&&S.atk?S.pt/S.atk.wind:0
-    if(skinReady){
-      const sz=34, yx=yDraw, yy=gyv-15+bob*.6
-      ctx.imageSmoothingEnabled=false
-      ctx.drawImage(skinImg,8,8,8,8,yx-sz/2,yy-sz/2,sz,sz)
-      ctx.drawImage(skinImg,40,8,8,8,yx-sz/2,yy-sz/2,sz,sz)
-      if(windP>.72){
-        ctx.globalAlpha=.25
-        ctx.fillStyle='#ff9d9d'
-        ctx.fillRect(yx-sz/2,yy-sz/2,sz,sz)
-        ctx.globalAlpha=1
-      }
-      ctx.strokeStyle='rgba(237,237,237,.3)'
-      ctx.strokeRect(yx-sz/2,yy-sz/2,sz,sz)
-    } else {
-      ctx.fillStyle=windP>.72?'#ff9d9d':'#ededed'
-      ctx.beginPath(); ctx.arc(yDraw,gyv-15+bob*.6,13,0,Math.PI*2); ctx.fill()
-      ctx.strokeStyle='rgba(237,237,237,.3)'; ctx.stroke()
-    }
+    ctx.fillStyle=windP>.72?'#ff9d9d':'#ededed'
+    ctx.beginPath(); ctx.arc(yDraw,gyv-15+bob*.6,13,0,Math.PI*2); ctx.fill()
+    ctx.strokeStyle='rgba(237,237,237,.3)'; ctx.stroke()
     if(blockActive()){
       ctx.strokeStyle='rgba(237,237,237,.7)'
       ctx.lineWidth=2
@@ -1508,7 +1488,7 @@ let duelGg=()=>{};
       ctx.arc(yDraw,gyv-15+bob*.6,19,Math.PI*.75,Math.PI*2.25)
       ctx.stroke()
     }
-    ctx.save()
+       ctx.save()
     ctx.translate(xx0,gyv-20+bob)
     if(S.phase==='recover'){
       ctx.globalAlpha=.55
@@ -1518,12 +1498,22 @@ let duelGg=()=>{};
       const s=1+.14*Math.sin(S.pt/45)
       ctx.scale(s,s)
     } else {
-      ctx.rotate(now/2200)
+      ctx.rotate(Math.sin(now/900)*.12)
     }
-    ctx.fillStyle='#ff2b2b'
-    ctx.fillRect(-13,-13,26,26)
-    ctx.fillStyle='#050505'
-    ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill()
+    if(skinReady){
+      const sz=30
+      ctx.imageSmoothingEnabled=false
+      ctx.drawImage(skinImg,8,8,8,8,-sz/2,-sz/2,sz,sz)
+      ctx.drawImage(skinImg,40,8,8,8,-sz/2,-sz/2,sz,sz)
+      ctx.strokeStyle='#ff2b2b'
+      ctx.lineWidth=1.5
+      ctx.strokeRect(-sz/2,-sz/2,sz,sz)
+    } else {
+      ctx.fillStyle='#ff2b2b'
+      ctx.fillRect(-13,-13,26,26)
+      ctx.fillStyle='#050505'
+      ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill()
+    }
     ctx.restore()
     if(S.phase==='wind'&&S.atk){
       const a=S.atk
