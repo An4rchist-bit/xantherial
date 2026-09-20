@@ -482,13 +482,14 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
       <p class="lead rv" style="--d:.12s">A little reaction duel, no scripting in my favor. When I flash red, dodge. When I stumble, hit me. That's the whole game. I can be beaten. That's the point.</p>
 
       <div class="demo rv" style="--d:.18s;margin-top:clamp(40px,7vh,60px)">
-        <div class="demo-head"><span class="l mono">PLAYABLE · REACTION DUEL</span><span class="r mono"><span class="pulse"></span>J STRIKE · K DODGE</span></div>
+        <div class="demo-head"><span class="l mono">PLAYABLE · REACTION DUEL</span><span class="r mono"><span class="pulse"></span>J STRIKE · K DODGE · L BLOCK</span></div>
         <canvas id="duelCv" data-hover aria-label="Playable duel minigame"></canvas>
         <ul id="duelLog" aria-live="polite"></ul>
         <div class="demo-foot">
           <div style="display:flex;gap:12px;flex-wrap:wrap">
             <button class="dbtn pri show" id="btnStrike" data-hover>STRIKE</button>
             <button class="dbtn pri show" id="btnDodge" data-hover>DODGE</button>
+            <button class="dbtn pri show" id="btnBlock" data-hover>BLOCK</button>
             <button class="dbtn show" id="btnTaunt" data-hover>TAUNT</button>
             <button class="dbtn" id="btnRematch" data-hover>REMATCH</button>
           </div>
@@ -1169,25 +1170,47 @@ function watch(el,cb){
   io.observe(el);
 }
 
-/* ================= THE DUEL · fair and beatable ================= */
+/* ================= THE DUEL · adaptive, it studies you ================= */
 let duelGg=()=>{};
 (function(){
   const cv=$('#duelCv'),ctx=cv.getContext('2d');
   let Wd=0,Hd=0,vis=false,lastT=performance.now();
   function size(){const DPR=Math.min(devicePixelRatio||1,2);Wd=cv.clientWidth;Hd=cv.clientHeight;cv.width=Wd*DPR;cv.height=Hd*DPR;ctx.setTransform(DPR,0,0,DPR,0,0)}
   size(); addEventListener('resize',size);
-  const WIND=800, RECOV=1000
-  const S={you:100,xan:100,over:false,won:false,phase:'idle',pt:0,wait:1600,
-    dodged:false,dodgeT:-1e4,slash:0,shake:0,blockStreak:0,ggUsed:false,
-    scoreYou:0,scoreXan:0,round:1,openSaid:false,ghosts:[],floats:[]}
+
+  const ATK={
+    quick:{wind:780},
+    normal:{wind:1000},
+    delayed:{wind:1560},
+    feint:{wind:520},
+    double:{wind:860},
+    heavy:{wind:1260}
+  };
+  const HITS=['CLEAN HIT','THAT LANDED','NICE ONE','GOOD READ']
+  const BLOCKS=['BLOCKED · I SAW IT COMING','PARRIED · TRY AGAIN','READ IT. RESPECTFULLY.']
+  const DODGES=['DODGED · NICE','NO HIT','SLICK']
+  const TAUNT_R=['HA · FAIR','OK THAT ONE WAS GOOD','NOTED. RESPECTFULLY.']
+  const READS={
+    early:'XAN: YOU FLINCH ON THE FLASH. NOTED.',
+    blocky:'XAN: YOU LIKE BLOCKING. I CAN WORK WITH THAT.',
+    bait:'XAN: YOU DODGE EVERYTHING. LET ME ADJUST.',
+    spam:'XAN: SWINGING WILD. INTERESTING.'
+  }
+
+  const S={
+    you:100,xan:100,over:false,won:false,
+    phase:'idle',pt:0,wait:1500,
+    atk:null,dodgeT:-1e4,blockT:-1e4,
+    slash:0,shake:0,counter:0,
+    scoreYou:0,scoreXan:0,round:1,pace:1,
+    ghosts:[],floats:[],read:0,readSaid:{},
+    hab:{dodges:0,early:0,blocks:0,baits:0,impatient:0}
+  }
   const skinImg=new Image()
   let skinReady=false
   skinImg.onload=()=>{ skinReady=true }
   skinImg.src='skin.png'
-  const HITS=['CLEAN HIT','THAT LANDED','NICE ONE','GOOD READ, GOOD SWING']
-  const BLOCKS=['BLOCKED · I SAW IT COMING','PARRIED · TRY AGAIN','READ IT. RESPECTFULLY.']
-  const DODGES=['DODGED · NICE','NO HIT','SLICK']
-  const TAUNT_R=['HA · FAIR','OK THAT ONE WAS GOOD','NOTED. RESPECTFULLY.']
+
   const logEl=$('#duelLog')
   function log(t,c){
     const li=document.createElement('li'); li.textContent=t; if(c)li.className=c;
@@ -1196,12 +1219,124 @@ let duelGg=()=>{};
   }
   function float(x,y,t,c){ S.floats.push({x,y,t,c,life:1}) }
   const gy=()=>Hd-64, youX0=()=>Wd*.28, xanX0=()=>Wd*.72
+  const dodgeActive=()=>performance.now()-S.dodgeT<300
+  const blockActive=()=>performance.now()-S.blockT<520
+
+  function chooseAttack(){
+    const h=S.hab
+    const w={quick:3,normal:3,delayed:1,feint:1,double:.5,heavy:.3}
+    if(h.dodges>=3&&h.early/Math.max(1,h.dodges)>.55){ w.delayed+=3 ; w.feint+=2 }
+    if(h.blocks>=3&&h.blocks/Math.max(1,h.dodges+h.blocks)>.6){ w.heavy+=3.5 ; w.quick+=1 }
+    if(h.baits>=2){ w.double+=2.5 }
+    if(h.impatient>=3){ w.normal+=1.5 }
+    if(S.round>=2){ w.feint+=.5*S.round ; w.double+=.45*S.round ; w.delayed+=.35*S.round }
+    let sum=0; for(const k in w) sum+=w[k]
+    let r=Math.random()*sum
+    for(const k in w){ r-=w[k] ; if(r<=0) return k }
+    return 'normal'
+  }
+  function startAttack(type,windOverride){
+    S.atk={type,wind:windOverride||ATK[type].wind*S.pace,second:false,punish:false}
+    S.phase='wind'; S.pt=0
+    const glyph=type==='heavy'?'!!':type==='feint'?'?':type==='double'?'x2':type==='delayed'?'...':'!'
+    float(xanX0(),gy()-96,glyph,'miss')
+  }
+  function update(dt){
+    if(S.over) return
+    S.pt+=dt*1000
+    const h=S.hab
+    S.read=Math.min(1,(h.dodges+h.blocks+h.baits+h.impatient)/9)
+    if(S.read>=.5&&!S.readSaid.half){ S.readSaid.half=true ; readTaunt() }
+    if(S.read>=1&&!S.readSaid.full){ S.readSaid.full=true ; readTaunt() }
+    if(S.phase==='idle'){
+      if(S.pt>S.wait) startAttack(chooseAttack())
+    } else if(S.phase==='wind'){
+      const a=S.atk
+      if(S.pt>=a.wind){
+        if(a.type==='feint'&&!a.punish){
+          if(dodgeActive()){
+            h.baits++
+            log('BAITED · UH OH','xan')
+            S.atk={type:'quick',wind:430,punish:true,second:false}
+            S.phase='wind'; S.pt=0
+            float(xanX0(),gy()-96,'!!','miss')
+          } else {
+            log('FEINT · NOTHING HAPPENED','sys')
+            S.phase='idle'; S.pt=0; S.wait=900+Math.random()*800
+            S.atk=null
+          }
+        } else {
+          resolveAttack()
+        }
+      }
+    } else if(S.phase==='recover'){
+      if(S.pt>950*S.pace){
+        S.phase='idle'; S.pt=0; S.wait=1100+Math.random()*900
+      }
+    }
+  }
+  function readTaunt(){
+    const h=S.hab
+    let line
+    if(h.early>=2&&h.dodges>=2) line=READS.early
+    else if(h.blocks>=3) line=READS.blocky
+    else if(h.baits>=2||h.dodges>=4) line=READS.bait
+    else line=READS.spam
+    log(line,'xan')
+    float(xanX0(),gy()-96,'READING YOU','miss')
+  }
+  function resolveAttack(){
+    const a=S.atk
+    const d=dodgeActive(),b=blockActive()
+    if(d){
+      log(pick(DODGES),'me')
+      tone(700,.08,.028,'sine')
+      afterAttack(false)
+      return
+    }
+    if(b&&a.type!=='heavy'){
+      const dmg=Math.max(1,Math.round((8+Math.floor(Math.random()*7))*.15))
+      S.you=Math.max(0,S.you-dmg); S.shake=3
+      float(youX0(),gy()-76,'-'+dmg,'')
+      log('BLOCKED · CHIP DAMAGE ONLY','sys')
+      tone(150,.12,.04,'triangle')
+      if(S.you<=0){ ko(false) ; return }
+      afterAttack(true)
+      return
+    }
+    let dmg=8+Math.floor(Math.random()*7)
+    if(a.type==='heavy') dmg+=8
+    if(a.punish) dmg=Math.max(6,dmg-2)
+    S.you=Math.max(0,S.you-dmg)
+    S.shake=a.type==='heavy'?10:7
+    float(youX0(),gy()-76,'-'+dmg,'')
+    const label=a.type==='heavy'?'GUARD CRUSH · BLOCK WAS THE WRONG CALL':a.punish?'BAITED AND PUNISHED':a.second?'SECOND TAP · BREATHE':'YOU TAKE '+dmg+' · READ THE TELLS'
+    log(label,'sys')
+    tone(a.type==='heavy'?70:100,.22,.055,'sine')
+    if(S.you<=0){ ko(false) ; return }
+    afterAttack(true)
+  }
+  function afterAttack(landed){
+    const a=S.atk
+    if(a.type==='double'&&!a.second){
+      S.atk={type:'double',wind:720*S.pace,second:true,punish:false}
+      S.phase='wind'; S.pt=0
+      float(xanX0(),gy()-96,'AGAIN','miss')
+      return
+    }
+    if(!landed){
+      S.phase='recover'; S.pt=0; S.atk=null
+      log('I WHIFF · YOUR MOVE','xan')
+    } else {
+      S.phase='idle'; S.pt=0; S.wait=1000+Math.random()*800; S.atk=null
+    }
+  }
   function strike(){
     if(S.over||!vis) return
-    if(S.phase==='recover'||S.phase==='open'){
+    if(S.phase==='recover'){
       const dmg=12+Math.floor(Math.random()*7)
       S.xan=Math.max(0,S.xan-dmg)
-      S.slash=1; S.blockStreak=0
+      S.slash=1; S.counter=0
       float(xanX0(),gy()-76,'-'+dmg,'crit')
       const r=cv.getBoundingClientRect()
       burst(r.left+xanX0(),r.top+gy()-16,14)
@@ -1209,12 +1344,13 @@ let duelGg=()=>{};
       tone(170,.14,.05,'triangle')
       if(S.xan<=0) ko(true)
     } else {
-      S.blockStreak++
+      S.counter++
       S.slash=.35
+      if(S.phase==='wind') S.hab.impatient++
       log(pick(BLOCKS),'xan')
-      tone(240,.06,.022,'square')
-      if(S.blockStreak>=3){
-        S.blockStreak=0
+      tone(240,.06,.02,'square')
+      if(S.counter>=3){
+        S.counter=0
         S.you=Math.max(0,S.you-5); S.shake=5
         float(youX0(),gy()-76,'-5','')
         log('XAN COUNTERS · PACE YOURSELF','xan')
@@ -1226,47 +1362,28 @@ let duelGg=()=>{};
   function dodge(){
     if(S.over||!vis) return
     S.dodgeT=performance.now()
-    if(S.phase==='wind'&&!S.dodged){
-      S.dodged=true
-      log(pick(DODGES),'me')
-      tone(720,.08,.03,'sine')
+    if(S.phase==='wind'&&S.atk){
+      S.hab.dodges++
+      if(S.pt/S.atk.wind<.42) S.hab.early++
     }
   }
-  function update(dt){
-    if(S.over) return
-    S.pt+=dt*1000
-    if(S.phase==='idle'){
-      if(S.pt>S.wait){ S.phase='wind' ; S.pt=0 ; S.dodged=false }
-    } else if(S.phase==='wind'){
-      if(S.pt>=WIND){
-        if(S.dodged){
-          log('I WHIFF · YOUR MOVE','xan')
-          S.phase='recover'; S.pt=0
-        } else {
-          const dmg=8+Math.floor(Math.random()*7)
-          S.you=Math.max(0,S.you-dmg); S.shake=7
-          float(youX0(),gy()-76,'-'+dmg,'')
-          log('YOU TAKE '+dmg+' · DODGE ON THE FLASH','sys')
-          tone(100,.2,.055,'sine')
-          if(S.you<=0){ ko(false) ; return }
-          S.phase='recover'; S.pt=0
-        }
-      }
-    } else if(S.phase==='recover'){
-      if(S.pt>RECOV){
-        S.pt=0; S.openSaid=false
-        if(Math.random()<.4){ S.phase='open' }
-        else { S.phase='idle' ; S.wait=1300+Math.random()*1200 }
-      }
-    } else if(S.phase==='open'){
-      if(!S.openSaid){ S.openSaid=true ; float(xanX0(),gy()-72,'OPEN','miss') }
-      if(S.pt>900){ S.phase='idle' ; S.pt=0 ; S.wait=1200+Math.random()*1000 }
-    }
+  function block(){
+    if(S.over||!vis) return
+    S.blockT=performance.now()
+    if(S.phase==='wind') S.hab.blocks++
   }
   function ko(won){
     S.over=true; S.won=won
-    if(won){ S.scoreYou++ ; log('XAN: GG. NICELY PLAYED.','xan') ; chime() }
-    else { S.scoreXan++ ; log('XAN: GG WP. REMATCH?','xan') ; tone(90,.5,.05,'sine') }
+    if(won){
+      S.scoreYou++
+      S.pace=Math.max(.6,S.pace*.92)
+      log('XAN: GG. NICELY PLAYED.','xan')
+      chime()
+    } else {
+      S.scoreXan++
+      log('XAN: GG WP. REMATCH?','xan')
+      tone(90,.5,.05,'sine')
+    }
     $('#scoreYou').textContent=S.scoreYou
     $('#scoreXan').textContent=S.scoreXan
     $('#btnRematch').classList.add('show')
@@ -1282,9 +1399,9 @@ let duelGg=()=>{};
   })
   $('#btnRematch').addEventListener('click',()=>{
     S.you=100; S.xan=100; S.over=false; S.phase='idle'; S.pt=0; S.wait=1400
-    S.round++; S.ggUsed=false
+    S.round++; S.counter=0
     $('#btnRematch').classList.remove('show')
-    log('ROUND '+S.round+' · READY','sys')
+    log('ROUND '+S.round+' · I REMEMBER YOU','sys')
   })
   addEventListener('keydown',e=>{
     const t=e.target
@@ -1294,6 +1411,7 @@ let duelGg=()=>{};
     const k=e.key.toLowerCase()
     if(k==='j') strike()
     else if(k==='k') dodge()
+    else if(k==='l') block()
   })
   duelGg=function(){
     if(S.over){ toast('XAN: GG WP') ; return }
@@ -1305,8 +1423,8 @@ let duelGg=()=>{};
     float(youX0(),gy()-76,'+15','crit')
     toast('RESPECT +10')
   }
-  log('SPARRING MODE · FIRST TO ZERO LOSES','sys')
-  log('XAN: DODGE THE FLASH, PUNISH THE STUMBLE','xan')
+  log('SPARRING MODE · I LEARN AS WE GO','sys')
+  log('XAN: DODGE, BLOCK, PUNISH MY STUMBLE','xan')
   function draw(now){
     requestAnimationFrame(draw)
     const dt=Math.min(.05,(now-lastT)/1000); lastT=now
@@ -1343,7 +1461,7 @@ let duelGg=()=>{};
       ctx.globalAlpha=1
     })
     const bob=Math.sin(now/620)*3
-    const windP=S.phase==='wind'?S.pt/WIND:0
+    const windP=S.phase==='wind'&&S.atk?S.pt/S.atk.wind:0
     if(skinReady){
       const sz=34, yx=yDraw, yy=gyv-15+bob*.6
       ctx.imageSmoothingEnabled=false
@@ -1362,6 +1480,13 @@ let duelGg=()=>{};
       ctx.beginPath(); ctx.arc(yDraw,gyv-15+bob*.6,13,0,Math.PI*2); ctx.fill()
       ctx.strokeStyle='rgba(237,237,237,.3)'; ctx.stroke()
     }
+    if(blockActive()){
+      ctx.strokeStyle='rgba(237,237,237,.7)'
+      ctx.lineWidth=2
+      ctx.beginPath()
+      ctx.arc(yDraw,gyv-15+bob*.6,19,Math.PI*.75,Math.PI*2.25)
+      ctx.stroke()
+    }
     ctx.save()
     ctx.translate(xx0,gyv-20+bob)
     if(S.phase==='recover'){
@@ -1379,15 +1504,16 @@ let duelGg=()=>{};
     ctx.fillStyle='#050505'
     ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill()
     ctx.restore()
-    if(S.phase==='wind'){
-      const rr=lerp(80,16,windP)
-      ctx.strokeStyle='rgba(255,43,43,'+(.4+.5*windP)+')'
-      ctx.lineWidth=1.5
-      ctx.beginPath(); ctx.arc(yDraw,gyv-15,rr,0,Math.PI*2); ctx.stroke()
-      ctx.fillStyle='#ff2b2b'
-      ctx.font='700 18px "Space Mono", monospace'
-      ctx.textAlign='center'
-      ctx.fillText('!',xx0,gyv-52+Math.sin(S.pt/60)*3)
+    if(S.phase==='wind'&&S.atk){
+      const a=S.atk
+      const p=Math.min(1,S.pt/a.wind)
+      let rr=lerp(88,16,p)
+      if(a.type==='delayed'&&p>.5) rr+=5*Math.sin(S.pt/60)
+      let al=.4+.5*p
+      if(a.type==='feint') al*=.5+.5*Math.sin(now/28)
+      ctx.strokeStyle=a.type==='heavy'?'rgba(255,70,70,'+al+')':'rgba(255,43,43,'+al+')'
+      ctx.lineWidth=a.type==='heavy'?3:1.5
+      ctx.beginPath(); ctx.arc(yDraw,gyv-15,Math.max(14,rr),0,Math.PI*2); ctx.stroke()
     }
     if(S.slash>.02){
       ctx.strokeStyle='rgba(255,43,43,'+S.slash+')'; ctx.lineWidth=2
@@ -1396,6 +1522,15 @@ let duelGg=()=>{};
       ctx.stroke()
       S.slash*=.88
     }
+    const rw=120,rx0=Wd/2-rw/2
+    ctx.font='8px "Space Mono", monospace'
+    ctx.fillStyle='rgba(237,237,237,.45)'
+    ctx.textAlign='center'
+    ctx.fillText('XAN READS YOU',Wd/2,24)
+    ctx.strokeStyle='rgba(237,237,237,.2)'
+    ctx.strokeRect(rx0,30,rw,5)
+    ctx.fillStyle='#ff2b2b'
+    ctx.fillRect(rx0+1,31,(rw-2)*S.read,3)
     function bar(x,w,pct,label,fill){
       ctx.font='9px "Space Mono", monospace'
       ctx.fillStyle='rgba(237,237,237,.55)'
