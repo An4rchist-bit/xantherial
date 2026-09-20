@@ -130,9 +130,16 @@ h2 em{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;t
 .spec .k{color:var(--ink-dim)}
 .spec .v{color:var(--ink);text-align:right}
 .spec .v.a{color:var(--accent)}
+.skinwrap{display:flex;align-items:center;gap:20px;margin-bottom:24px}
+.skinframe{border:1px solid var(--hair);padding:10px;background:rgba(10,10,10,.6);flex:none}
+.skinface{position:relative;width:104px;height:104px;background-repeat:no-repeat;
+  background-size:832px 832px;background-position:-104px -104px;image-rendering:pixelated}
+.skinhat{position:absolute;inset:0;background-repeat:no-repeat;
+  background-size:832px 832px;background-position:-520px -104px;image-rendering:pixelated}
 @media(max-width:900px){.file-grid{grid-template-columns:1fr}.spec{border-left:none;border-top:1px solid var(--hair);padding:20px 0 0}}
 
 /* ---------- currently ---------- */
+.now{margin-top:clamp(56px,9vh,84vh);border-top:1px solid var(--hair);padding-top:30px}
 .now{margin-top:clamp(56px,9vh,84px);border-top:1px solid var(--hair);padding-top:30px}
 .now-t{color:var(--accent);margin-bottom:14px}
 .now-row{display:grid;grid-template-columns:200px 1fr;gap:24px;align-items:baseline;padding:16px 0;border-bottom:1px solid var(--hair)}
@@ -421,6 +428,12 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
           <p class="tail">If any of that sounds like your kind of thing, I think we'd get along.</p>
         </div>
         <div class="spec" aria-label="Quick facts">
+          <div class="skinwrap">
+            <div class="skinframe">
+              <div class="skinface" style="background-image:url('skin.png')"><div class="skinhat" style="background-image:url('skin.png')"></div></div>
+            </div>
+            <p class="mono" style="font-size:9px;letter-spacing:.24em;color:var(--ink-dim);line-height:2.6">OPERATOR VISUAL<br>FACE LAYER · 8×8<br>HAT LAYER · ON</p>
+          </div>
           <div class="row"><span class="k">DESIGNATION</span><span class="v">XANTHERIAL</span></div>
           <div class="row"><span class="k">ALIAS</span><span class="v">XAN</span></div>
           <div class="row"><span class="k">AGE</span><span class="v">17</span></div>
@@ -596,16 +609,17 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
 
       <div class="vpoem rv" style="--d:.18s" id="vpoem">
         <div class="vstanza">
-          <span class="vline rv" style="--d:.2s"> Envious, because I have a heart</span>
+          <span class="vline rv" style="--d:.2s">Envious, because I have a heart</span>
           <span class="vline rv" style="--d:.3s">Gluttonous, because I have a heart</span>
           <span class="vline rv" style="--d:.4s">Greedy, because I have a heart</span>
           <span class="vline rv" style="--d:.5s">Prideful, because I have a heart</span>
-          <span class="vline rv" style="--d:.5s">Slothful, because I have a heart</span>
-          <span class="vline rv" style="--d:.5s">Wrathful, because I have a heart</span>
-          <span class="vline rv" style="--d:.5s">Because I have a heart</span>
-          <span class="vline rv" style="--d:.5s">I lust for all that you are.</span>
+          <span class="vline rv" style="--d:.6s">Slothful, because I have a heart</span>
+          <span class="vline rv" style="--d:.7s">Wrathful, because I have a heart</span>
+          <span class="vline rv" style="--d:.8s">Because I have a heart</span>
+          <span class="vline rv" style="--d:.9s">I lust for all that you are.</span>
         </div>
-      <p class="vnote mono rv" style="--d:1.2s">ONE DRAFT. THE SECOND DRAFT IS A MYTH.</p>
+      </div>
+      <p class="vnote mono rv" style="--d:1.15s">AFTER TITE KUBO · BLEACH</p>
       <p class="vhint mono rv" style="--d:1.25s">TAP THE LINES · A MINOR, DESCENDING</p>
     </div>
   </section>
@@ -691,8 +705,6 @@ const lerp = (a,b,t) => a+(b-a)*t;
 
 /* ================================================================
    THE HOUSE BAND · a slow ballad, synthesized live
-   brushed drums, warm bass, lazy piano, vibes with nowhere to be
-   the changes are the old songbook kind, the melody is improvised
    ================================================================ */
 let AC=null, master=null, jazzBus=null, melBus=null, soundOn=false;
 const midiF = m => 440*Math.pow(2,(m-69)/12);
@@ -1168,6 +1180,10 @@ let duelGg=()=>{};
   const S={you:100,xan:100,over:false,won:false,phase:'idle',pt:0,wait:1600,
     dodged:false,dodgeT:-1e4,slash:0,shake:0,blockStreak:0,ggUsed:false,
     scoreYou:0,scoreXan:0,round:1,openSaid:false,ghosts:[],floats:[]}
+  const skinImg=new Image()
+  let skinReady=false
+  skinImg.onload=()=>{ skinReady=true }
+  skinImg.src='skin.png'
   const HITS=['CLEAN HIT','THAT LANDED','NICE ONE','GOOD READ, GOOD SWING']
   const BLOCKS=['BLOCKED · I SAW IT COMING','PARRIED · TRY AGAIN','READ IT. RESPECTFULLY.']
   const DODGES=['DODGED · NICE','NO HIT','SLICK']
@@ -1317,15 +1333,35 @@ let duelGg=()=>{};
     for(let x=20;x<Wd;x+=44){ ctx.beginPath(); ctx.moveTo(x,gyv); ctx.lineTo(x,gyv+8); ctx.stroke() }
     dashGhosts.forEach(gx=>{
       ctx.globalAlpha=.25
-      ctx.fillStyle='#ededed'
-      ctx.beginPath(); ctx.arc(gx,gyv-15,13,0,Math.PI*2); ctx.fill()
+      if(skinReady){
+        ctx.imageSmoothingEnabled=false
+        ctx.drawImage(skinImg,8,8,8,8,gx-17,gyv-32,34,34)
+      } else {
+        ctx.fillStyle='#ededed'
+        ctx.beginPath(); ctx.arc(gx,gyv-15,13,0,Math.PI*2); ctx.fill()
+      }
       ctx.globalAlpha=1
     })
     const bob=Math.sin(now/620)*3
     const windP=S.phase==='wind'?S.pt/WIND:0
-    ctx.fillStyle=windP>.72?'#ff9d9d':'#ededed'
-    ctx.beginPath(); ctx.arc(yDraw,gyv-15+bob*.6,13,0,Math.PI*2); ctx.fill()
-    ctx.strokeStyle='rgba(237,237,237,.3)'; ctx.stroke()
+    if(skinReady){
+      const sz=34, yx=yDraw, yy=gyv-15+bob*.6
+      ctx.imageSmoothingEnabled=false
+      ctx.drawImage(skinImg,8,8,8,8,yx-sz/2,yy-sz/2,sz,sz)
+      ctx.drawImage(skinImg,40,8,8,8,yx-sz/2,yy-sz/2,sz,sz)
+      if(windP>.72){
+        ctx.globalAlpha=.25
+        ctx.fillStyle='#ff9d9d'
+        ctx.fillRect(yx-sz/2,yy-sz/2,sz,sz)
+        ctx.globalAlpha=1
+      }
+      ctx.strokeStyle='rgba(237,237,237,.3)'
+      ctx.strokeRect(yx-sz/2,yy-sz/2,sz,sz)
+    } else {
+      ctx.fillStyle=windP>.72?'#ff9d9d':'#ededed'
+      ctx.beginPath(); ctx.arc(yDraw,gyv-15+bob*.6,13,0,Math.PI*2); ctx.fill()
+      ctx.strokeStyle='rgba(237,237,237,.3)'; ctx.stroke()
+    }
     ctx.save()
     ctx.translate(xx0,gyv-20+bob)
     if(S.phase==='recover'){
@@ -1342,11 +1378,6 @@ let duelGg=()=>{};
     ctx.fillRect(-13,-13,26,26)
     ctx.fillStyle='#050505'
     ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill()
-    if(S.phase==='open'){
-      ctx.strokeStyle='rgba(237,237,237,'+(.5+.5*Math.sin(now/80))+')'
-      ctx.lineWidth=1.5
-      ctx.strokeRect(-19,-19,38,38)
-    }
     ctx.restore()
     if(S.phase==='wind'){
       const rr=lerp(80,16,windP)
@@ -1611,17 +1642,32 @@ let duelGg=()=>{};
   scramble();
 })();
 
-/* ================= THE VERSE (tuned lines) ================= */
+/* ================= THE VERSE (tuned lines, plays anytime) ================= */
 (function(){
   const freqs=[440,392,329.63,293.66,261.63,220,196,164.81,146.83,130.81,110,98];
   $$('#vpoem .vline').forEach((el,i)=>{
     el.dataset.f=freqs[i%freqs.length];
     el.addEventListener('click',()=>{
-      tone(+el.dataset.f,1.1,.05,'sine');
+      poemTone(+el.dataset.f);
       el.classList.add('tapped');
       setTimeout(()=>el.classList.remove('tapped'),900);
     });
   });
+  function poemTone(f){
+    ensureAC();
+    if(AC.state==='suspended') AC.resume();
+    const t0=AC.currentTime;
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type='sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(.05,t0+.01);
+    g.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
+    o.connect(g).connect(master);
+    const dly=getDelay();
+    const send=AC.createGain(); send.gain.value=.25;
+    g.connect(send); send.connect(dly);
+    o.start(t0); o.stop(t0+1.15);
+  }
 })();
 
 /* ================= THE GALLERY LIGHTBOX ================= */
