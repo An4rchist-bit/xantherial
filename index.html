@@ -173,6 +173,7 @@ h2 em{font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:500;t
 .dbtn:disabled{opacity:.35;cursor:default}
 .dbtn.pri{border-color:var(--accent-soft);color:var(--accent)}
 .dbtn.pri:hover:not(:disabled){border-color:var(--accent);color:var(--ink)}
+.dbtn.on{border-color:var(--accent);color:var(--accent)}
 canvas{display:block;width:100%}
 
 /* ---------- duel ---------- */
@@ -622,7 +623,7 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
         </div>
       </div>
       <p class="vnote mono rv" style="--d:1.15s">AFTER TITE KUBO · BLEACH</p>
-      <p class="vhint mono rv" style="--d:1.25s">TAP THE LINES · A MINOR, DESCENDING</p>
+<p class="vhint mono rv" style="--d:1.25s">TAP THE LINES · THE MUSIC BOX</p>
     </div>
   </section>
 
@@ -650,9 +651,10 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
           </div>
         </div>
         <div class="trio-ctrls">
-          <button class="dbtn show" id="btnTdn" data-hover>SLOWER</button>
-          <button class="dbtn show" id="btnTup" data-hover>FASTER</button>
-          <button class="dbtn show" id="btnSolo" data-hover>MELODY DRIFTS IN</button>
+          <button class="dbtn show gbtn on" data-g="room" data-hover>THE ROOM</button>
+          <button class="dbtn show gbtn" data-g="ballad" data-hover>THE BALLAD</button>
+          <button class="dbtn show gbtn" data-g="tape" data-hover>THE TAPE</button>
+          <button class="dbtn show" id="btnSolo" data-hover>MELODY</button>
         </div>
         <canvas id="visCv" aria-hidden="true"></canvas>
       </div>
@@ -714,20 +716,64 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
 const lerp = (a,b,t) => a+(b-a)*t;
 
 /* ================================================================
+   THE MUSIC · three rooms, one engine
    THE ROOM · sparse ambient, after C418
-   soft keys, warm pads, huge space, and the patience to wait
+   THE BALLAD · brushed and swung, the old songbook
+   THE TAPE · dusty lo-fi, three in the morning
    ================================================================ */
 let AC=null, master=null, roomBus=null, keyBus=null, soundOn=false;
+let hissGain=null;
 const midiF = m => 440*Math.pow(2,(m-69)/12);
 
-const PROG=[
+const ROOM_PROG=[
   {n:'Am9',   root:45, pad:[45,52,57,60,64,71]},
   {n:'Fmaj9', root:41, pad:[41,48,53,57,60,69]},
   {n:'Cmaj9', root:36, pad:[36,48,52,55,59,67]},
   {n:'Gadd9', root:43, pad:[43,50,55,59,62,69]}
 ];
-const MEL=[69,72,74,76,79,81,84,86,88];
-const jz={playing:false,nextT:0,timer:null,chordI:0,hold:10,drift:0};
+const ROOM_MEL=[69,72,74,76,79,81,84,86,88];
+
+const BALLAD_BOOK=[
+  {n:'Am7',   root:45, pcs:[9,0,4,7],  pv:[60,64,67,71]},
+  {n:'Dm7',   root:38, pcs:[2,5,9,0],  pv:[65,69,72,76]},
+  {n:'G7',    root:43, pcs:[7,11,2,5], pv:[59,62,65,69]},
+  {n:'Cmaj7', root:36, pcs:[0,4,7,11], pv:[64,67,71,74]},
+  {n:'Fmaj7', root:41, pcs:[5,9,0,4],  pv:[57,60,64,67]},
+  {n:'Bm7b5', root:47, pcs:[11,2,5,9], pv:[62,65,69,72]},
+  {n:'E7',    root:40, pcs:[4,8,11,2], pv:[56,59,62,66]},
+  {n:'Am7',   root:45, pcs:[9,0,4,7],  pv:[60,64,67,71]},
+  {n:'C7',    root:36, pcs:[0,4,7,10], pv:[64,67,70,74]},
+  {n:'Fmaj7', root:41, pcs:[5,9,0,4],  pv:[57,60,64,67]},
+  {n:'Fm',    root:41, pcs:[5,8,0,3],  pv:[56,60,63,67]},
+  {n:'Cmaj7', root:36, pcs:[0,4,7,11], pv:[64,67,71,74]},
+  {n:'Em7',   root:40, pcs:[4,7,11,2], pv:[55,59,62,66]},
+  {n:'A7',    root:45, pcs:[9,1,4,7],  pv:[61,64,67,71]},
+  {n:'Dm7',   root:38, pcs:[2,5,9,0],  pv:[65,69,72,76]},
+  {n:'G7',    root:43, pcs:[7,11,2,5], pv:[59,62,65,69]}
+];
+const BALLAD_MEL=[72,74,76,77,79,81,83,84];
+
+const TAPE_BOOK=[
+  {n:'Fmaj7', root:41, keys:[53,57,60,64]},
+  {n:'Em7',   root:40, keys:[52,55,59,62]},
+  {n:'Dm9',   root:38, keys:[50,53,57,60,64]},
+  {n:'Cmaj7', root:36, keys:[48,52,55,59]}
+];
+const TAPE_MEL=[72,74,77,79,81,84];
+
+const GENRES={
+  room:{label:'THE ROOM',   hint:'SPARSE · AFTER C418'},
+  ballad:{label:'THE BALLAD', hint:'BRUSHED · THE OLD SONGBOOK'},
+  tape:{label:'THE TAPE',   hint:'DUSTY · 3 A.M.'}
+};
+
+const jz={
+  playing:false, genre:'room', timer:null,
+  nextT:0, beat:0, bar:0, hold:10,
+  drift:0, live:[], melNext:0, melPrev:76
+};
+
+function track(o,end){ jz.live.push({o,end}) }
 
 function ensureAC(){
   if(AC) return;
@@ -736,6 +782,11 @@ function ensureAC(){
   const an = AC.createAnalyser(); an.fftSize = 1024;
   master.connect(an); an.connect(AC.destination);
   window.__an = an;
+
+  const nb = AC.createBuffer(1, AC.sampleRate*1.5, AC.sampleRate);
+  const nd = nb.getChannelData(0);
+  for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
+  AC.__noise = nb;
 
   roomBus = AC.createGain(); roomBus.gain.value = 1;
   const cv = AC.createConvolver();
@@ -770,7 +821,7 @@ function getDelay(){
   return AC.__dly;
 }
 
-/* ---- soft felt piano ---- */
+/* ---------- the room's instruments ---------- */
 function keyNote(m, t, v, dur){
   const f = midiF(m);
   const o1 = AC.createOscillator(); o1.type='sine'; o1.frequency.value = f;
@@ -787,11 +838,10 @@ function keyNote(m, t, v, dur){
   const dly=getDelay();
   const send=AC.createGain(); send.gain.value=.4;
   g.connect(send); send.connect(dly);
-  o1.start(t); o1.stop(t + dur + .1);
-  o2.start(t); o2.stop(t + dur + .1);
+  const st = t + dur + .1;
+  o1.start(t); o1.stop(st); track(o1,st);
+  o2.start(t); o2.stop(st); track(o2,st);
 }
-
-/* ---- warm evolving pad ---- */
 function padChord(freqs, t, hold){
   freqs.forEach((f, i) => {
     const o = AC.createOscillator();
@@ -808,11 +858,10 @@ function padChord(freqs, t, hold){
     g.gain.setValueAtTime(v, t + hold - 3);
     g.gain.linearRampToValueAtTime(0, t + hold);
     o.connect(lp); lp.connect(g); g.connect(roomBus);
-    o.start(t); o.stop(t + hold + .1);
+    const st = t + hold + .1;
+    o.start(t); o.stop(st); track(o,st);
   });
 }
-
-/* ---- sub bass, barely there ---- */
 function subNote(m, t, dur){
   const o = AC.createOscillator(); o.type = 'sine';
   o.frequency.value = midiF(m);
@@ -822,78 +871,365 @@ function subNote(m, t, dur){
   g.gain.setValueAtTime(.045, t + dur - 2);
   g.gain.linearRampToValueAtTime(0, t + dur);
   o.connect(g); g.connect(roomBus);
-  o.start(t); o.stop(t + dur + .1);
+  const st = t + dur + .1;
+  o.start(t); o.stop(st); track(o,st);
 }
 
-/* ---- the room breathes ---- */
+/* ---------- the ballad's instruments ---------- */
+function bassNote(m,t){
+  const o=AC.createOscillator(), g=AC.createGain(), lp=AC.createBiquadFilter();
+  o.type='triangle'; o.frequency.value=midiF(m);
+  lp.type='lowpass'; lp.frequency.value=340;
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(.14,t+.012);
+  g.gain.exponentialRampToValueAtTime(.0001,t+1.25);
+  o.connect(g); g.connect(lp); lp.connect(roomBus);
+  const st=t+1.3;
+  o.start(t); o.stop(st); track(o,st);
+}
+function pianoChord(ns,t,v){
+  ns.forEach((m,i)=>{
+    const tt=t+i*.024;
+    const o=AC.createOscillator(), o2=AC.createOscillator();
+    const g=AC.createGain(), g2=AC.createGain(), lp=AC.createBiquadFilter();
+    o.type='triangle'; o.frequency.value=midiF(m);
+    o2.type='sine'; o2.frequency.value=midiF(m)*2.004;
+    lp.type='lowpass'; lp.frequency.value=2200;
+    const vel=v*(1-Math.random()*.25)*(1-i*.06);
+    g.gain.setValueAtTime(0,tt);
+    g.gain.linearRampToValueAtTime(vel,tt+.014);
+    g.gain.exponentialRampToValueAtTime(.0001,tt+1.5);
+    g2.gain.value=.3;
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(lp); lp.connect(roomBus);
+    const st=tt+1.55;
+    o.start(tt); o.stop(st); track(o,st);
+    o2.start(tt); o2.stop(st); track(o2,st);
+  });
+}
+function swish(t,acc,vol){
+  const len=acc?.36:.22;
+  const s=AC.createBufferSource(); s.buffer=AC.__noise;
+  s.loopStart=Math.random(); s.loop=true;
+  const bp=AC.createBiquadFilter(); bp.type='bandpass';
+  bp.frequency.value=acc?1300:1900; bp.Q.value=.6;
+  const g=AC.createGain();
+  const v=(acc?.021:.012)*vol;
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(v,t+len*.4);
+  g.gain.exponentialRampToValueAtTime(.0001,t+len);
+  s.connect(bp); bp.connect(g); g.connect(roomBus);
+  const st=t+len+.05;
+  s.start(t); s.stop(st); track(s,st);
+}
+function vibes(m,t,dur,v){
+  const f=midiF(m);
+  const o=AC.createOscillator(), o2=AC.createOscillator(), g=AC.createGain(), g2=AC.createGain();
+  const lfo=AC.createOscillator(), lg=AC.createGain();
+  o.type='sine'; o.frequency.value=f;
+  o2.type='sine'; o2.frequency.value=f*3.01;
+  g2.gain.value=.06;
+  lfo.frequency.value=4.2; lg.gain.value=5;
+  lfo.connect(lg); lg.connect(o.detune);
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(v,t+.01);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g); o2.connect(g2); g2.connect(g); g.connect(roomBus);
+  const dly=getDelay();
+  const send=AC.createGain(); send.gain.value=.22;
+  g.connect(send); send.connect(dly);
+  const st=t+dur+.1;
+  o.start(t); o.stop(st); track(o,st);
+  o2.start(t); o2.stop(st); track(o2,st);
+  lfo.start(t); lfo.stop(st); track(lfo,st);
+}
+
+/* ---------- the tape's instruments ---------- */
+function lofiKick(t){
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type='sine';
+  o.frequency.setValueAtTime(100,t);
+  o.frequency.exponentialRampToValueAtTime(40,t+.11);
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(.16,t+.005);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.24);
+  o.connect(g); g.connect(master);
+  const st=t+.26;
+  o.start(t); o.stop(st); track(o,st);
+}
+function lofiSnare(t){
+  const s=AC.createBufferSource(); s.buffer=AC.__noise;
+  s.loopStart=Math.random(); s.loop=true;
+  const bp=AC.createBiquadFilter(); bp.type='bandpass';
+  bp.frequency.value=1800; bp.Q.value=.8;
+  const g=AC.createGain();
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(.03,t+.003);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.16);
+  s.connect(bp); bp.connect(g); g.connect(roomBus);
+  const st=t+.2;
+  s.start(t); s.stop(st); track(s,st);
+}
+function lofiKeys(keys,t){
+  keys.forEach((m,i)=>{
+    const tt=t+i*.03+Math.random()*.02;
+    const o=AC.createOscillator(), o2=AC.createOscillator();
+    const g=AC.createGain(), lp=AC.createBiquadFilter();
+    o.type='triangle'; o.frequency.value=midiF(m);
+    o.detune.value=Math.random()*10-5;
+    o2.type='sine'; o2.frequency.value=midiF(m)*2.01; o2.detune.value=-7;
+    lp.type='lowpass'; lp.frequency.value=1100;
+    const v=.028/(1+i*.2);
+    g.gain.setValueAtTime(0,tt);
+    g.gain.linearRampToValueAtTime(v,tt+.01);
+    g.gain.exponentialRampToValueAtTime(.0001,tt+1.8);
+    o.connect(g); o2.connect(g); g.connect(lp); lp.connect(roomBus);
+    const dly=getDelay();
+    const send=AC.createGain(); send.gain.value=.15;
+    g.connect(send); send.connect(dly);
+    const st=tt+1.85;
+    o.start(tt); o.stop(st); track(o,st);
+    o2.start(tt); o2.stop(st); track(o2,st);
+  });
+}
+function lofiBass(m,t){
+  const o=AC.createOscillator(), g=AC.createGain();
+  o.type='triangle'; o.frequency.value=midiF(m);
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(.09,t+.02);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.7);
+  o.connect(g); g.connect(roomBus);
+  const st=t+.75;
+  o.start(t); o.stop(st); track(o,st);
+}
+function lofiMel(m,t){
+  const f=midiF(m);
+  const o=AC.createOscillator(), o2=AC.createOscillator();
+  const g=AC.createGain(), lp=AC.createBiquadFilter();
+  o.type='sine'; o.frequency.value=f;
+  o2.type='triangle'; o2.frequency.value=f; o2.detune.value=6;
+  lp.type='lowpass'; lp.frequency.value=1800;
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(.03,t+.02);
+  g.gain.exponentialRampToValueAtTime(.0001,t+1.2);
+  o.connect(g); o2.connect(g); g.connect(lp); lp.connect(keyBus);
+  const dly=getDelay();
+  const send=AC.createGain(); send.gain.value=.3;
+  g.connect(send); send.connect(dly);
+  const st=t+1.25;
+  o.start(t); o.stop(st); track(o,st);
+  o2.start(t); o2.stop(st); track(o2,st);
+}
+function vinylPop(t){
+  const s=AC.createBufferSource(); s.buffer=AC.__noise;
+  s.loopStart=Math.random(); s.loop=true;
+  const hp=AC.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=3800;
+  const g=AC.createGain();
+  g.gain.setValueAtTime(.004+Math.random()*.009,t);
+  g.gain.exponentialRampToValueAtTime(.0001,t+.015+Math.random()*.04);
+  s.connect(hp); hp.connect(g); g.connect(master);
+  const st=t+.06;
+  s.start(t); s.stop(st); track(s,st);
+}
+function setHiss(on){
+  if(!AC) return;
+  if(!hissGain){
+    const s=AC.createBufferSource(); s.buffer=AC.__noise; s.loop=true;
+    const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=7000;
+    const g=AC.createGain(); g.gain.value=0;
+    s.connect(lp); lp.connect(g); g.connect(master);
+    s.start();
+    hissGain=g;
+  }
+  hissGain.gain.setTargetAtTime(on?.005:0, AC.currentTime, .8);
+}
+
+/* ---------- the three schedulers ---------- */
+function roomBar(){
+  const ch=ROOM_PROG[jz.bar%ROOM_PROG.length];
+  const hold=jz.hold+Math.random()*3;
+  padChord(ch.pad.map(midiF), jz.nextT, hold);
+  subNote(ch.root, jz.nextT, hold);
+  let mt=jz.nextT+1.5+Math.random()*2;
+  while(mt<jz.nextT+hold-1){
+    if(Math.random()<(jz.drift>0?.8:.4)){
+      const m=pick(ROOM_MEL);
+      const dur=2.5+Math.random()*3;
+      keyNote(m,mt,.03+Math.random()*.015,dur);
+      if(Math.random()<.3&&m>74) keyNote(m-12,mt+.08,.015,dur*1.3);
+    }
+    mt+=2+Math.random()*4;
+  }
+  const ct=jz.nextT, label=ch.n;
+  setTimeout(()=>{ if(jz.playing&&jz.genre==='room') $('#chordNow').textContent=label }, Math.max(0,(ct-AC.currentTime)*1000));
+  jz.nextT+=hold;
+  jz.bar++;
+}
+function balladBeat(){
+  const SPB=60/76;
+  const bar=Math.floor(jz.beat/4), bt=jz.beat%4;
+  const ch=BALLAD_BOOK[bar%BALLAD_BOOK.length];
+  const nb=BALLAD_BOOK[(bar+1)%BALLAD_BOOK.length];
+  const solo=jz.drift>0;
+  const t=jz.nextT;
+  if(bt===0){
+    bassNote(ch.root,t);
+    const third=ch.pcs.includes((ch.root+4)%12)?ch.root+4:ch.root+3;
+    bassNote(Math.random()<.5?ch.root+7:third,t+2*SPB);
+    if(Math.random()<.45){
+      let ap=nb.root+pick([-2,-1,1,2]);
+      if(ap<36) ap+=12;
+      if(ap>55) ap-=12;
+      bassNote(ap,t+3*SPB);
+    }
+    pianoChord(ch.pv,t,.03);
+    if(solo){ if(Math.random()<.6) pianoChord(ch.pv,t+2*SPB,.022) }
+    else if(Math.random()<.45) pianoChord(ch.pv,t+2*SPB,.02);
+    const label=ch.n;
+    setTimeout(()=>{ if(jz.playing&&jz.genre==='ballad') $('#chordNow').textContent=label }, Math.max(0,(t-AC.currentTime)*1000));
+  }
+  if(bt===0) swish(t,true,.8);
+  else if(bt===2) swish(t,false,1);
+  else swish(t,false,.6);
+  if(jz.beat>=jz.melNext){
+    if(Math.random()<(solo?.85:.68)){
+      const tones=BALLAD_MEL.filter(m=>ch.pcs.includes(m%12));
+      const near=tones.filter(m=>Math.abs(m-jz.melPrev)<=2);
+      let m;
+      if(near.length&&Math.random()<.6) m=pick(near);
+      else if(tones.length) m=pick(tones);
+      else m=pick(BALLAD_MEL);
+      jz.melPrev=m;
+      const d=solo?(Math.random()<.5?1:2):2+Math.floor(Math.random()*2);
+      vibes(m,t,d*SPB*1.05,solo?.082:.055);
+      jz.melNext=jz.beat+d;
+    } else {
+      jz.melNext=jz.beat+2+Math.floor(Math.random()*2);
+    }
+  }
+  const b=bt;
+  setTimeout(()=>{ if(jz.playing&&jz.genre==='ballad') $$('#beatDots i').forEach((d,i)=>d.classList.toggle('hit',i===b)) }, Math.max(0,(t-AC.currentTime)*1000));
+  jz.nextT+=SPB;
+  jz.beat++;
+}
+function tapeBeat(){
+  const SPB=60/74;
+  const swing=SPB*.58;
+  const bar=Math.floor(jz.beat/4), bt=jz.beat%4;
+  const ch=TAPE_BOOK[bar%TAPE_BOOK.length];
+  const t=jz.nextT;
+  if(bt===0||bt===2) lofiKick(t);
+  if(bt===1||bt===3){ lofiSnare(t); if(Math.random()<.5) lofiKick(t+swing) }
+  if(bt===0){ lofiBass(ch.root,t); lofiKeys(ch.keys,t+(Math.random()<.4?.09:0)) }
+  if(bt===2){ lofiBass(ch.root+(Math.random()<.4?7:0),t+swing*.5); if(Math.random()<.4) lofiKeys(ch.keys,t+.05) }
+  if(jz.beat>=jz.melNext&&Math.random()<(jz.drift>0?.7:.45)){
+    lofiMel(pick(TAPE_MEL),t);
+    jz.melNext=jz.beat+2+Math.floor(Math.random()*4);
+  }
+  const pops=1+Math.floor(Math.random()*3);
+  for(let i=0;i<pops;i++) vinylPop(t+Math.random()*SPB);
+  if(bt===0){
+    const label=ch.n;
+    setTimeout(()=>{ if(jz.playing&&jz.genre==='tape') $('#chordNow').textContent=label }, Math.max(0,(t-AC.currentTime)*1000));
+  }
+  const b=bt;
+  setTimeout(()=>{ if(jz.playing&&jz.genre==='tape') $$('#beatDots i').forEach((d,i)=>d.classList.toggle('hit',i===b)) }, Math.max(0,(t-AC.currentTime)*1000));
+  jz.nextT+=SPB;
+  jz.beat++;
+}
+
 function schedule(){
   if(!jz.playing) return;
-  const now = AC.currentTime;
-  while(jz.nextT < now + 15){
-    const ch = PROG[jz.chordI % PROG.length];
-    const hold = jz.hold + Math.random() * 3;
-    padChord(ch.pad.map(midiF), jz.nextT, hold);
-    subNote(ch.root, jz.nextT, hold);
-    let mt = jz.nextT + 1.5 + Math.random() * 2;
-    while(mt < jz.nextT + hold - 1){
-      if(Math.random() < (jz.drift > 0 ? .8 : .4)){
-        const m = MEL[Math.floor(Math.random() * MEL.length)];
-        const dur = 2.5 + Math.random() * 3;
-        keyNote(m, mt, .03 + Math.random() * .015, dur);
-        if(Math.random() < .3 && m > 74){
-          keyNote(m - 12, mt + .08, .015, dur * 1.3);
-        }
-      }
-      mt += 2 + Math.random() * 4;
-    }
-    const ct = jz.nextT;
-    setTimeout(() => {
-      if(jz.playing) $('#chordNow').textContent = ch.n;
-    }, Math.max(0, (ct - AC.currentTime) * 1000));
-    jz.nextT += hold;
-    jz.chordI++;
+  const now=AC.currentTime;
+  jz.live=jz.live.filter(n=>n.end>now-1);
+  while(jz.nextT<now+12){
+    if(jz.genre==='room') roomBar();
+    else if(jz.genre==='ballad') balladBeat();
+    else tapeBeat();
   }
+}
+
+function genreUI(){
+  const g=GENRES[jz.genre];
+  $('#demoHint').textContent=g.hint;
+  $('#bpmNow').textContent=jz.genre==='room'?'NO CLOCK':(jz.genre==='ballad'?'76 BPM':'74 BPM');
+  $$('.gbtn').forEach(b=>b.classList.toggle('on',b.dataset.g===jz.genre));
 }
 
 function startTrio(){
   ensureAC();
-  if(AC.state === 'suspended') AC.resume();
+  if(AC.state==='suspended') AC.resume();
   if(jz.playing) return;
-  jz.playing = true; soundOn = true;
-  jz.nextT = AC.currentTime + .5;
-  jz.chordI = 0; jz.drift = 0;
+  jz.playing=true; soundOn=true;
+  roomBus.gain.cancelScheduledValues(AC.currentTime);
+  roomBus.gain.setTargetAtTime(1,AC.currentTime,.25);
+  jz.nextT=AC.currentTime+.5;
+  jz.beat=0; jz.bar=0; jz.melNext=4; jz.melPrev=76; jz.drift=0;
+  $('#btnSolo').classList.remove('on');
+  setHiss(jz.genre==='tape');
   schedule();
-  jz.timer = setInterval(schedule, 4000);
+  jz.timer=setInterval(schedule,4000);
   $('#trioPanel').classList.add('playing');
-  const sb = $('#sndBtn');
-  sb.classList.add('on'); sb.setAttribute('aria-pressed', 'true');
-  $('#sndTxt').textContent = 'ROOM ON';
+  const sb=$('#sndBtn');
+  sb.classList.add('on'); sb.setAttribute('aria-pressed','true');
+  $('#sndTxt').textContent='MUSIC ON';
 }
 function stopTrio(){
-  jz.playing = false; soundOn = false;
+  jz.playing=false; soundOn=false;
   clearInterval(jz.timer);
+  const t=AC.currentTime;
+  roomBus.gain.cancelScheduledValues(t);
+  roomBus.gain.setTargetAtTime(0,t,.3);
+  setHiss(false);
+  const kill=jz.live;
+  jz.live=[];
+  setTimeout(()=>{ kill.forEach(n=>{ try{ n.o.stop() }catch(e){} }) },1100);
   $('#trioPanel').classList.remove('playing');
-  $('#chordNow').textContent = 'READY';
-  const sb = $('#sndBtn');
-  sb.classList.remove('on'); sb.setAttribute('aria-pressed', 'false');
-  $('#sndTxt').textContent = 'ROOM OFF';
+  $('#chordNow').textContent='READY';
+  $$('#beatDots i').forEach(d=>d.classList.remove('hit'));
+  const sb=$('#sndBtn');
+  sb.classList.remove('on'); sb.setAttribute('aria-pressed','false');
+  $('#sndTxt').textContent='MUSIC OFF';
 }
- $('#sndBtn').addEventListener('click', () => jz.playing ? stopTrio() : startTrio());
- $('#btnPlay').addEventListener('click', () => jz.playing ? stopTrio() : startTrio());
- $('#btnTdn').addEventListener('click', () => {
-  jz.hold = Math.min(20, jz.hold + 2);
-  $('#bpmNow').textContent = 'STILLER';
-})
- $('#btnTup').addEventListener('click', () => {
-  jz.hold = Math.max(6, jz.hold - 2);
-  $('#bpmNow').textContent = 'CLOSER';
-})
- $('#btnSolo').addEventListener('click', () => {
+function switchGenre(g){
+  if(jz.genre===g) return;
+  const wasPlaying=jz.playing;
+  if(wasPlaying&&AC){
+    const kill=jz.live; jz.live=[];
+    const t=AC.currentTime;
+    roomBus.gain.cancelScheduledValues(t);
+    roomBus.gain.setValueAtTime(roomBus.gain.value,t);
+    roomBus.gain.linearRampToValueAtTime(.12,t+.3);
+    kill.forEach(n=>{ try{ n.o.stop(t+.35) }catch(e){} });
+  }
+  jz.genre=g;
+  jz.beat=0; jz.bar=0; jz.melNext=4; jz.melPrev=76; jz.drift=0;
+  if(AC) jz.nextT=AC.currentTime+.6;
+  $('#btnSolo').classList.remove('on');
+  $$('#beatDots i').forEach(d=>d.classList.remove('hit'));
+  genreUI();
+  if(wasPlaying){
+    setHiss(g==='tape');
+    const t2=AC.currentTime;
+    roomBus.gain.setValueAtTime(.12,t2+.5);
+    roomBus.gain.linearRampToValueAtTime(1,t2+1.4);
+    toast(GENRES[g].label+' · TUNED');
+  } else {
+    toast(GENRES[g].label+' · SELECTED');
+  }
+}
+ $('#sndBtn').addEventListener('click',()=>jz.playing?stopTrio():startTrio());
+ $('#btnPlay').addEventListener('click',()=>jz.playing?stopTrio():startTrio());
+ $$('.gbtn').forEach(b=>b.addEventListener('click',()=>switchGenre(b.dataset.g)));
+ $('#btnSolo').addEventListener('click',()=>{
   if(!jz.playing) startTrio();
-  jz.drift = jz.drift > 0 ? 0 : 24;
-  $('#btnSolo').classList.toggle('on', jz.drift > 0);
-  toast(jz.drift > 0 ? 'THE MELODY DRIFTS IN' : 'THE ROOM SETTLES');
+  jz.drift=jz.drift>0?0:24;
+  $('#btnSolo').classList.toggle('on',jz.drift>0);
+  const msg=jz.genre==='room'?(jz.drift>0?'THE MELODY DRIFTS IN':'THE ROOM SETTLES')
+    :jz.genre==='ballad'?(jz.drift>0?'VIBES TAKES THE SOLO':'THE BAND SETTLES')
+    :(jz.drift>0?'THE MELODY WANDERS':'THE TAPE SETTLES');
+  toast(msg);
 })
+genreUI();
 
 /* ---- one-shots for the rest of the page ---- */
 function tone(f, d, v, type, dl){
@@ -1709,31 +2045,31 @@ let duelGg=()=>{};
   scramble();
 })();
 
-/* ================= THE VERSE (tuned lines, plays anytime) ================= */
+/* ================= THE VERSE · music box ================= */
 (function(){
-  const freqs=[440,392,329.63,293.66,261.63,220,196,164.81,146.83,130.81,110,98];
+  const freqs=[880,783.99,659.25,587.33,523.25,440,392,329.63,293.66,261.63,220,196];
   $$('#vpoem .vline').forEach((el,i)=>{
     el.dataset.f=freqs[i%freqs.length];
     el.addEventListener('click',()=>{
-      poemTone(+el.dataset.f);
+      musicBoxNote(+el.dataset.f);
       el.classList.add('tapped');
       setTimeout(()=>el.classList.remove('tapped'),900);
     });
   });
-  function poemTone(f){
+  function musicBoxNote(f){
     ensureAC();
     if(AC.state==='suspended') AC.resume();
     const t0=AC.currentTime;
-    const o=AC.createOscillator(), g=AC.createGain();
-    o.type='sine'; o.frequency.value=f;
-    g.gain.setValueAtTime(0,t0);
-    g.gain.linearRampToValueAtTime(.05,t0+.01);
-    g.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
-    o.connect(g).connect(master);
-    const dly=getDelay();
-    const send=AC.createGain(); send.gain.value=.25;
-    g.connect(send); send.connect(dly);
-    o.start(t0); o.stop(t0+1.15);
+    const partials=[{r:1,v:.06},{r:3.4,v:.02},{r:6.7,v:.008}];
+    partials.forEach(p=>{
+      const o=AC.createOscillator(), g=AC.createGain();
+      o.type='sine'; o.frequency.value=f*p.r;
+      g.gain.setValueAtTime(0,t0);
+      g.gain.linearRampToValueAtTime(p.v,t0+.004);
+      g.gain.exponentialRampToValueAtTime(.0001,t0+1.4);
+      o.connect(g).connect(master);
+      o.start(t0); o.stop(t0+1.45);
+    });
   }
 })();
 
