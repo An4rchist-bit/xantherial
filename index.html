@@ -623,7 +623,7 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
         </div>
       </div>
       <p class="vnote mono rv" style="--d:1.15s">AFTER TITE KUBO · BLEACH</p>
-<p class="vhint mono rv" style="--d:1.25s">TAP THE LINES · THE MUSIC BOX</p>
+<p class="vhint mono rv" style="--d:1.25s">TAP THE LINES · A MINOR, DESCENDING</p>
     </div>
   </section>
 
@@ -2044,31 +2044,31 @@ let duelGg=()=>{};
   scramble();
 })();
 
-/* ================= THE VERSE · music box ================= */
+/* ================= THE VERSE (tuned lines, plays anytime) ================= */
 (function(){
-  const freqs=[880,783.99,659.25,587.33,523.25,440,392,329.63,293.66,261.63,220,196];
+  const freqs=[440,392,329.63,293.66,261.63,220,196,164.81,146.83,130.81,110,98];
   $$('#vpoem .vline').forEach((el,i)=>{
     el.dataset.f=freqs[i%freqs.length];
     el.addEventListener('click',()=>{
-      musicBoxNote(+el.dataset.f);
+      poemTone(+el.dataset.f);
       el.classList.add('tapped');
       setTimeout(()=>el.classList.remove('tapped'),900);
     });
   });
-  function musicBoxNote(f){
+  function poemTone(f){
     ensureAC();
     if(AC.state==='suspended') AC.resume();
     const t0=AC.currentTime;
-    const partials=[{r:1,v:.06},{r:3.4,v:.02},{r:6.7,v:.008}];
-    partials.forEach(p=>{
-      const o=AC.createOscillator(), g=AC.createGain();
-      o.type='sine'; o.frequency.value=f*p.r;
-      g.gain.setValueAtTime(0,t0);
-      g.gain.linearRampToValueAtTime(p.v,t0+.004);
-      g.gain.exponentialRampToValueAtTime(.0001,t0+1.4);
-      o.connect(g).connect(master);
-      o.start(t0); o.stop(t0+1.45);
-    });
+    const o=AC.createOscillator(), g=AC.createGain();
+    o.type='sine'; o.frequency.value=f;
+    g.gain.setValueAtTime(0,t0);
+    g.gain.linearRampToValueAtTime(.05,t0+.01);
+    g.gain.exponentialRampToValueAtTime(.0001,t0+1.1);
+    o.connect(g).connect(master);
+    const dly=getDelay();
+    const send=AC.createGain(); send.gain.value=.25;
+    g.connect(send); send.connect(dly);
+    o.start(t0); o.stop(t0+1.15);
   }
 })();
 
