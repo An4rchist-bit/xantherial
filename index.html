@@ -631,11 +631,11 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
     <span class="chnum" aria-hidden="true">07</span>
     <div class="wrap">
       <div class="sec-head rv"><p class="kicker mono">§ 07 · THE HOUSE BAND</p><p class="mono dim">07 / 07</p></div>
-      <h2 class="rv" style="--d:.06s">House <em>band</em></h2>
-      <p class="lead rv" style="--d:.12s">The music on this page is a slow ballad, synthesized live in your browser. Brushed drums, a bass that takes its time, unhurried piano, and a vibraphone with nowhere else to be. It plays the old songbook changes and never the same phrase twice. Push it around a little if you like.</p>
+     <h2 class="rv" style="--d:.06s">The <em>room</em></h2>
+<p class="lead rv" style="--d:.12s">The background music on this page is a quiet room, synthesized live in your browser. A few soft piano notes with a lot of space between them, warm pads that take their time arriving, and the kind of reverb that makes silence feel intentional. It never plays the same phrase twice. If the room feels too still, nudge it.</p>
 
       <div class="demo trio-panel rv" id="trioPanel" style="--d:.18s">
-        <div class="demo-head"><span class="l mono">LIVE · SLOW BALLAD, BRUSHED AND SWUNG</span><span class="r mono">NEVER THE SAME TWICE</span></div>
+     <div class="demo-head"><span class="l mono">LIVE · SPARSE AMBIENT, AFTER C418</span><span class="r mono">NEVER THE SAME TWICE</span></div>
         <div class="player">
           <button class="playbtn" id="btnPlay" data-hover aria-label="Start or stop the house band">
             <svg class="icoPlay" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></svg>
@@ -652,7 +652,7 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
         <div class="trio-ctrls">
           <button class="dbtn show" id="btnTdn" data-hover>SLOWER</button>
           <button class="dbtn show" id="btnTup" data-hover>FASTER</button>
-          <button class="dbtn show" id="btnSolo" data-hover>VIBES TAKES A SOLO</button>
+          <button class="dbtn show" id="btnSolo" data-hover>MELODY DRIFTS IN</button>
         </div>
         <canvas id="visCv" aria-hidden="true"></canvas>
       </div>
@@ -714,272 +714,202 @@ const pick = a => a[Math.floor(Math.random()*a.length)];
 const lerp = (a,b,t) => a+(b-a)*t;
 
 /* ================================================================
-   THE HOUSE BAND · a slow ballad, synthesized live
+   THE ROOM · sparse ambient, after C418
+   soft keys, warm pads, huge space, and the patience to wait
    ================================================================ */
-let AC=null, master=null, jazzBus=null, melBus=null, soundOn=false;
+let AC=null, master=null, roomBus=null, keyBus=null, soundOn=false;
 const midiF = m => 440*Math.pow(2,(m-69)/12);
 
-const V={
-  Am7:  {n:'Am7',   root:45, pcs:[9,0,4,7],  pv:[60,64,67,71]},
-  Dm7:  {n:'Dm7',   root:38, pcs:[2,5,9,0],  pv:[65,69,72,76]},
-  G7:   {n:'G7',    root:43, pcs:[7,11,2,5], pv:[59,62,65,69]},
-  Cmaj7:{n:'Cmaj7', root:36, pcs:[0,4,7,11], pv:[64,67,71,74]},
-  Fmaj7:{n:'Fmaj7', root:41, pcs:[5,9,0,4],  pv:[57,60,64,67]},
-  Bm75: {n:'Bm7b5', root:47, pcs:[11,2,5,9], pv:[62,65,69,72]},
-  E7:   {n:'E7',    root:40, pcs:[4,8,11,2], pv:[56,59,62,66]},
-  A7:   {n:'A7',    root:45, pcs:[9,1,4,7],  pv:[61,64,67,71]},
-  C7:   {n:'C7',    root:36, pcs:[0,4,7,10], pv:[64,67,70,74]},
-  Fm:   {n:'Fm',    root:41, pcs:[5,8,0,3],  pv:[56,60,63,67]},
-  Em7:  {n:'Em7',   root:40, pcs:[4,7,11,2], pv:[55,59,62,66]}
-};
-const BOOK=[
-  V.Am7,V.Dm7,V.G7,V.Cmaj7,V.Fmaj7,V.Bm75,V.E7,V.Am7,
-  V.C7,V.Fmaj7,V.Fm,V.Cmaj7,V.Em7,V.A7,V.Dm7,V.G7,
-  V.Am7,V.Dm7,V.G7,V.Cmaj7,V.Fmaj7,V.Bm75,V.E7,V.A7
+const PROG=[
+  {n:'Am9',   root:45, pad:[45,52,57,60,64,71]},
+  {n:'Fmaj9', root:41, pad:[41,48,53,57,60,69]},
+  {n:'Cmaj9', root:36, pad:[36,48,52,55,59,67]},
+  {n:'Gadd9', root:43, pad:[43,50,55,59,62,69]}
 ];
-const SC=[72,74,76,77,79,81,83,84];
-const jz={playing:false,bpm:76,beat:0,nextT:0,timer:null,
-  melNext:0,melPrev:76,soloLeft:0,bars:0};
+const MEL=[69,72,74,76,79,81,84,86,88];
+const jz={playing:false,nextT:0,timer:null,chordI:0,hold:10,drift:0};
 
 function ensureAC(){
   if(AC) return;
   AC = new (window.AudioContext||window.webkitAudioContext)();
-  master = AC.createGain(); master.gain.value = .82;
+  master = AC.createGain(); master.gain.value = .75;
   const an = AC.createAnalyser(); an.fftSize = 1024;
   master.connect(an); an.connect(AC.destination);
   window.__an = an;
-  jazzBus = AC.createGain(); jazzBus.gain.value = .9; jazzBus.connect(master);
-  melBus = AC.createGain(); melBus.gain.value = 1;
-  const mlp = AC.createBiquadFilter(); mlp.type='lowpass'; mlp.frequency.value=3800;
-  melBus.connect(mlp); mlp.connect(jazzBus);
-  const nb = AC.createBuffer(1, AC.sampleRate*1.5, AC.sampleRate);
-  const nd = nb.getChannelData(0);
-  for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
-  AC.__noise = nb;
+
+  roomBus = AC.createGain(); roomBus.gain.value = 1;
+  const cv = AC.createConvolver();
+  const len = AC.sampleRate * 3;
+  const buf = AC.createBuffer(2, len, AC.sampleRate);
+  for(let ch=0; ch<2; ch++){
+    const d = buf.getChannelData(ch);
+    for(let i=0; i<len; i++){
+      d[i] = (Math.random()*2-1) * Math.pow(1-i/len, 2) * .35;
+    }
+  }
+  cv.buffer = buf;
+  const wet = AC.createGain(); wet.gain.value = .7;
+  roomBus.connect(cv); cv.connect(wet); wet.connect(master);
+  roomBus.connect(master);
+
+  keyBus = AC.createGain(); keyBus.gain.value = 1;
+  keyBus.connect(roomBus);
 }
+
 function getDelay(){
   if(!AC.__dly){
-    const din=AC.createGain(); din.gain.value=.28;
-    const d=AC.createDelay(1); d.delayTime.value=.42;
-    const fb=AC.createGain(); fb.gain.value=.3;
-    const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1800;
-    const wet=AC.createGain(); wet.gain.value=.5;
+    const din=AC.createGain(); din.gain.value=.3;
+    const d=AC.createDelay(1); d.delayTime.value=.5;
+    const fb=AC.createGain(); fb.gain.value=.25;
+    const lp=AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=1200;
+    const wet=AC.createGain(); wet.gain.value=.6;
     din.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d);
-    d.connect(wet); wet.connect(master);
+    d.connect(wet); wet.connect(roomBus);
     AC.__dly=din;
   }
   return AC.__dly;
 }
 
-/* ---- instruments ---- */
-function bassNote(m,t){
-  const o=AC.createOscillator(), g=AC.createGain(), lp=AC.createBiquadFilter();
-  o.type='triangle'; o.frequency.value=midiF(m);
-  lp.type='lowpass'; lp.frequency.value=340;
-  g.gain.setValueAtTime(0,t);
-  g.gain.linearRampToValueAtTime(.14,t+.012);
-  g.gain.exponentialRampToValueAtTime(.0001,t+1.25);
-  o.connect(g); g.connect(lp); lp.connect(jazzBus);
-  o.start(t); o.stop(t+1.3);
-}
-function pianoChord(ns,t,v){
-  ns.forEach((m,i)=>{
-    const tt=t+i*.024
-    const o=AC.createOscillator(), o2=AC.createOscillator()
-    const g=AC.createGain(), g2=AC.createGain(), lp=AC.createBiquadFilter()
-    o.type='triangle'; o.frequency.value=midiF(m)
-    o2.type='sine'; o2.frequency.value=midiF(m)*2.004
-    lp.type='lowpass'; lp.frequency.value=2200
-    const vel=v*(1-Math.random()*.25)*(1-i*.06)
-    g.gain.setValueAtTime(0,tt)
-    g.gain.linearRampToValueAtTime(vel,tt+.014)
-    g.gain.exponentialRampToValueAtTime(.0001,tt+1.5)
-    g2.gain.value=.3
-    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(lp); lp.connect(jazzBus)
-    o.start(tt); o.stop(tt+1.55)
-    o2.start(tt); o2.stop(tt+1.55)
-  })
-}
-function swish(t,acc,vol){
-  const len=acc?.36:.22
-  const s=AC.createBufferSource(); s.buffer=AC.__noise
-  s.loopStart=Math.random(); s.loop=true
-  const bp=AC.createBiquadFilter(); bp.type='bandpass'
-  bp.frequency.value=acc?1300:1900; bp.Q.value=.6
-  const g=AC.createGain()
-  const v=(acc?.021:.012)*vol
-  g.gain.setValueAtTime(0,t)
-  g.gain.linearRampToValueAtTime(v,t+len*.4)
-  g.gain.exponentialRampToValueAtTime(.0001,t+len)
-  s.connect(bp); bp.connect(g); g.connect(jazzBus)
-  s.start(t); s.stop(t+len+.05)
-}
-function vibes(m,t,dur,v){
-  const f=midiF(m)
-  const o=AC.createOscillator(), o2=AC.createOscillator(), g=AC.createGain(), g2=AC.createGain()
-  const lfo=AC.createOscillator(), lg=AC.createGain()
-  o.type='sine'; o.frequency.value=f
-  o2.type='sine'; o2.frequency.value=f*3.01
-  g2.gain.value=.06
-  lfo.frequency.value=4.2; lg.gain.value=5
-  lfo.connect(lg); lg.connect(o.detune)
-  g.gain.setValueAtTime(0,t)
-  g.gain.linearRampToValueAtTime(v,t+.01)
-  g.gain.exponentialRampToValueAtTime(.0001,t+dur)
-  o.connect(g); o2.connect(g2); g2.connect(g); g.connect(melBus)
-  const dly=getDelay()
-  const send=AC.createGain(); send.gain.value=.22
-  g.connect(send); send.connect(dly)
-  o.start(t); o.stop(t+dur+.1)
-  o2.start(t); o2.stop(t+dur+.1)
-  lfo.start(t); lfo.stop(t+dur+.1)
+/* ---- soft felt piano ---- */
+function keyNote(m, t, v, dur){
+  const f = midiF(m);
+  const o1 = AC.createOscillator(); o1.type='sine'; o1.frequency.value = f;
+  const o2 = AC.createOscillator(); o2.type='triangle'; o2.frequency.value = f; o2.detune.value = 4;
+  const g = AC.createGain();
+  const lp = AC.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value = 1600;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(v, t + .05);
+  g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  const g2 = AC.createGain(); g2.gain.value = .25;
+  o1.connect(g);
+  o2.connect(g2); g2.connect(g);
+  g.connect(lp); lp.connect(keyBus);
+  const dly=getDelay();
+  const send=AC.createGain(); send.gain.value=.4;
+  g.connect(send); send.connect(dly);
+  o1.start(t); o1.stop(t + dur + .1);
+  o2.start(t); o2.stop(t + dur + .1);
 }
 
-/* ---- the book, played slowly ---- */
-function chTones(ch){
-  const out=[]
-  ch.pcs.forEach(pc=>{
-    let m=72+(pc%12)
-    while(m<86){ out.push(m); m+=12 }
-  })
-  return out
-}
-function melNote(ch){
-  const tones=chTones(ch)
-  const near=tones.filter(t=>Math.abs(t-jz.melPrev)<=5)
-  const r=Math.random()
-  let m
-  if(r<.5&&near.length) m=pick(near)
-  else if(r<.72) m=jz.melPrev+pick([-2,-1,1,2])
-  else if(r<.88) m=pick(tones)
-  else m=pick(SC)
-  if(m<70) m+=12
-  if(m>86) m-=12
-  jz.melPrev=m
-  return m
-}
-function melAt(b,t,ch,solo,SPB){
-  if(b<jz.melNext) return
-  if(Math.random()<(solo?.9:.68)){
-    const d=solo?(Math.random()<.5?1:2):(Math.random()<.45?2:(Math.random()<.6?3:4))
-    vibes(melNote(ch),t,d*SPB*1.05,solo?.082:.055)
-    jz.melNext=b+d
-  } else {
-    jz.melNext=b+(solo?1:2+Math.floor(Math.random()*3))
-  }
-}
-function bassBar(ch,nb,t,SPB){
-  bassNote(ch.root,t)
-  const third=ch.pcs.includes((ch.root+4)%12)?ch.root+4:ch.root+3
-  bassNote(Math.random()<.5?ch.root+7:third,t+2*SPB)
-  if(Math.random()<.45){
-    let ap=nb.root+pick([-2,-1,1,2])
-    if(ap<36) ap+=12
-    if(ap>55) ap-=12
-    bassNote(ap,t+3*SPB)
-  }
-}
-function pianoBar(ch,t,SPB,solo){
-  pianoChord(ch.pv,t,solo?.037:.03)
-  if(solo){
-    if(Math.random()<.6) pianoChord(ch.pv,t+2*SPB,.024)
-    if(Math.random()<.35) pianoChord(ch.pv,t+SPB*1.66,.02)
-  } else if(Math.random()<.45){
-    pianoChord(ch.pv,t+2*SPB,.02)
-  }
-}
-function uiAt(t,fn){
-  const delay=Math.max(0,(t-AC.currentTime)*1000)
-  setTimeout(fn,delay)
-}
-function scheduleBeat(b,t){
-  const SPB=60/jz.bpm
-  const bar=Math.floor(b/4), bt=b%4
-  const ch=BOOK[bar%BOOK.length]
-  const nb=BOOK[(bar+1)%BOOK.length]
-  const solo=jz.soloLeft>0
-  if(bt===0){
-    if(jz.soloLeft>0){ jz.soloLeft-- ; if(!jz.soloLeft) soloOff() }
-    jz.bars++
-    bassBar(ch,nb,t,SPB)
-    pianoBar(ch,t,SPB,solo)
-    uiAt(t,()=>{ $('#chordNow').textContent=ch.n })
-  }
-  uiAt(t,()=>{ $$('#beatDots i').forEach((d,i)=>d.classList.toggle('hit',i===bt)) })
-  const fade=Math.min(1,.3*jz.bars)
-  if(fade>0){
-    if(bt===0) swish(t,true,fade)
-    else if(bt===2) swish(t,false,fade*1.4)
-    else swish(t,false,fade*.8)
-    if(solo&&Math.random()<.5) swish(t+SPB*.66,false,fade*.7)
-  }
-  melAt(b,t,ch,solo,SPB)
+/* ---- warm evolving pad ---- */
+function padChord(freqs, t, hold){
+  freqs.forEach((f, i) => {
+    const o = AC.createOscillator();
+    o.type = i % 2 ? 'sawtooth' : 'triangle';
+    o.frequency.value = f;
+    o.detune.value = (i - freqs.length/2) * 7;
+    const lp = AC.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 750 + Math.random() * 350;
+    const g = AC.createGain();
+    const v = .01 / (1 + i * .35);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(v, t + 3);
+    g.gain.setValueAtTime(v, t + hold - 3);
+    g.gain.linearRampToValueAtTime(0, t + hold);
+    o.connect(lp); lp.connect(g); g.connect(roomBus);
+    o.start(t); o.stop(t + hold + .1);
+  });
 }
 
-/* ---- transport ---- */
-function startTrio(){
-  ensureAC()
-  if(AC.state==='suspended') AC.resume()
-  if(jz.playing) return
-  jz.playing=true; soundOn=true
-  jz.beat=0; jz.nextT=AC.currentTime+.1
-  jz.melNext=2; jz.melPrev=76; jz.soloLeft=0; jz.bars=0
-  jz.timer=setInterval(()=>{
-    while(jz.nextT<AC.currentTime+.25&&jz.playing){
-      scheduleBeat(jz.beat,jz.nextT)
-      jz.nextT+=60/jz.bpm
-      jz.beat++
+/* ---- sub bass, barely there ---- */
+function subNote(m, t, dur){
+  const o = AC.createOscillator(); o.type = 'sine';
+  o.frequency.value = midiF(m);
+  const g = AC.createGain();
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(.045, t + 2);
+  g.gain.setValueAtTime(.045, t + dur - 2);
+  g.gain.linearRampToValueAtTime(0, t + dur);
+  o.connect(g); g.connect(roomBus);
+  o.start(t); o.stop(t + dur + .1);
+}
+
+/* ---- the room breathes ---- */
+function schedule(){
+  if(!jz.playing) return;
+  const now = AC.currentTime;
+  while(jz.nextT < now + 15){
+    const ch = PROG[jz.chordI % PROG.length];
+    const hold = jz.hold + Math.random() * 3;
+    padChord(ch.pad.map(midiF), jz.nextT, hold);
+    subNote(ch.root, jz.nextT, hold);
+    let mt = jz.nextT + 1.5 + Math.random() * 2;
+    while(mt < jz.nextT + hold - 1){
+      if(Math.random() < (jz.drift > 0 ? .8 : .4)){
+        const m = MEL[Math.floor(Math.random() * MEL.length)];
+        const dur = 2.5 + Math.random() * 3;
+        keyNote(m, mt, .03 + Math.random() * .015, dur);
+        if(Math.random() < .3 && m > 74){
+          keyNote(m - 12, mt + .08, .015, dur * 1.3);
+        }
+      }
+      mt += 2 + Math.random() * 4;
     }
-  },50)
-  $('#trioPanel').classList.add('playing')
-  const sb=$('#sndBtn')
-  sb.classList.add('on'); sb.setAttribute('aria-pressed','true')
-  $('#sndTxt').textContent='BAND ON'
+    const ct = jz.nextT;
+    setTimeout(() => {
+      if(jz.playing) $('#chordNow').textContent = ch.n;
+    }, Math.max(0, (ct - AC.currentTime) * 1000));
+    jz.nextT += hold;
+    jz.chordI++;
+  }
+}
+
+function startTrio(){
+  ensureAC();
+  if(AC.state === 'suspended') AC.resume();
+  if(jz.playing) return;
+  jz.playing = true; soundOn = true;
+  jz.nextT = AC.currentTime + .5;
+  jz.chordI = 0; jz.drift = 0;
+  schedule();
+  jz.timer = setInterval(schedule, 4000);
+  $('#trioPanel').classList.add('playing');
+  const sb = $('#sndBtn');
+  sb.classList.add('on'); sb.setAttribute('aria-pressed', 'true');
+  $('#sndTxt').textContent = 'ROOM ON';
 }
 function stopTrio(){
-  jz.playing=false; soundOn=false
-  clearInterval(jz.timer)
-  $('#trioPanel').classList.remove('playing')
-  $('#chordNow').textContent='READY'
-  $$('#beatDots i').forEach(d=>d.classList.remove('hit'))
-  soloOff()
-  const sb=$('#sndBtn')
-  sb.classList.remove('on'); sb.setAttribute('aria-pressed','false')
-  $('#sndTxt').textContent='BAND OFF'
+  jz.playing = false; soundOn = false;
+  clearInterval(jz.timer);
+  $('#trioPanel').classList.remove('playing');
+  $('#chordNow').textContent = 'READY';
+  const sb = $('#sndBtn');
+  sb.classList.remove('on'); sb.setAttribute('aria-pressed', 'false');
+  $('#sndTxt').textContent = 'ROOM OFF';
 }
-function soloOff(){ $('#btnSolo').classList.remove('on') }
- $('#sndBtn').addEventListener('click',()=>jz.playing?stopTrio():startTrio())
- $('#btnPlay').addEventListener('click',()=>jz.playing?stopTrio():startTrio())
- $('#btnTdn').addEventListener('click',()=>{
-  jz.bpm=Math.max(56,jz.bpm-6)
-  $('#bpmNow').textContent=jz.bpm+' BPM'
+ $('#sndBtn').addEventListener('click', () => jz.playing ? stopTrio() : startTrio());
+ $('#btnPlay').addEventListener('click', () => jz.playing ? stopTrio() : startTrio());
+ $('#btnTdn').addEventListener('click', () => {
+  jz.hold = Math.min(20, jz.hold + 2);
+  $('#bpmNow').textContent = 'STILLER';
 })
- $('#btnTup').addEventListener('click',()=>{
-  jz.bpm=Math.min(100,jz.bpm+6)
-  $('#bpmNow').textContent=jz.bpm+' BPM'
+ $('#btnTup').addEventListener('click', () => {
+  jz.hold = Math.max(6, jz.hold - 2);
+  $('#bpmNow').textContent = 'CLOSER';
 })
- $('#btnSolo').addEventListener('click',()=>{
-  if(!jz.playing) startTrio()
-  jz.soloLeft=8
-  $('#btnSolo').classList.add('on')
-  toast('VIBES TAKES THE SOLO · 8 SLOW BARS')
+ $('#btnSolo').addEventListener('click', () => {
+  if(!jz.playing) startTrio();
+  jz.drift = jz.drift > 0 ? 0 : 24;
+  $('#btnSolo').classList.toggle('on', jz.drift > 0);
+  toast(jz.drift > 0 ? 'THE MELODY DRIFTS IN' : 'THE ROOM SETTLES');
 })
 
 /* ---- one-shots for the rest of the page ---- */
-function tone(f,d,v,type,dl){
-  if(!soundOn||!AC) return;
-  const t0=AC.currentTime+(dl||0);
-  const o=AC.createOscillator(), g=AC.createGain();
-  o.type=type||'sine'; o.frequency.value=f;
-  g.gain.setValueAtTime(0,t0);
-  g.gain.linearRampToValueAtTime(v,t0+.01);
-  g.gain.exponentialRampToValueAtTime(.0001,t0+d);
-  o.connect(g).connect(master); o.start(t0); o.stop(t0+d+.05);
+function tone(f, d, v, type, dl){
+  if(!soundOn || !AC) return;
+  const t0 = AC.currentTime + (dl || 0);
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type || 'sine'; o.frequency.value = f;
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(v, t0 + .01);
+  g.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  o.connect(g).connect(master); o.start(t0); o.stop(t0 + d + .05);
 }
-const blip = i => tone(480+i*44,.13,.032,'sine');
+const blip = i => tone(480 + i * 44, .13, .032, 'sine');
 function chime(){
   [[440,2.2,.05,0],[523.25,2.6,.04,.09],[659.25,3,.035,.18],[880,3.2,.02,.27]]
-    .forEach(([f,d,v,dl])=>tone(f,d,v,'sine',dl));
+    .forEach(([f,d,v,dl]) => tone(f, d, v, 'sine', dl));
 }
 
 /* ---- oscilloscope ---- */
