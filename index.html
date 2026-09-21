@@ -199,6 +199,7 @@ canvas{display:block;width:100%}
 .gal{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:clamp(40px,7vh,60px);align-items:start}
 .gi{display:flex;flex-direction:column;gap:0;margin:0}
 .gi.sp2{grid-column:span 2}
+.gi.sp3{grid-column:1/-1}
 .gi .frame{border:1px solid var(--hair);overflow:hidden;position:relative;background:#0a0a0a;transition:border-color .3s}
 .gi:hover .frame{border-color:var(--accent-soft)}
 .gi img,.gi video{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s cubic-bezier(.2,.7,.2,1)}
@@ -527,38 +528,28 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input,b
       <h2 class="rv" style="--d:.06s">Proof of <em>work</em></h2>
       <p class="lead rv" style="--d:.12s">Things I've built and fights I've been in, straight from my screenshot folder. Click any picture for a closer look.</p>
 
-      <div class="gal rv" style="--d:.18s">
-        <figure class="gi sp2" data-lb>
-          <div class="frame a-wide"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%230a0a0a'/%3E%3Crect x='16' y='16' width='768' height='418' fill='none' stroke='%23202020'/%3E%3Cpath d='M400 160 v44 M378 182 h44' stroke='%23ff2b2b' stroke-width='1'/%3E%3Ctext x='400' y='252' font-family='monospace' font-size='20' letter-spacing='6' fill='%23ff2b2b' text-anchor='middle'%3ESCREENSHOT SLOT%3C/text%3E%3Ctext x='400' y='280' font-family='monospace' font-size='12' fill='%23555555' text-anchor='middle'%3Eimg src=builds/your-file.jpg%3C/text%3E%3C/svg%3E" alt="" loading="lazy"></div>
-          <figcaption>SHOT 01 · THE KEEP · SIX WEEKS OF WEEKENDS</figcaption>
-        </figure>
-        <figure class="gi" data-lb>
-          <div class="frame a-tall"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='800'%3E%3Crect width='600' height='800' fill='%230a0a0a'/%3E%3Crect x='16' y='16' width='568' height='768' fill='none' stroke='%23202020'/%3E%3Cpath d='M300 330 v44 M278 352 h44' stroke='%23ff2b2b' stroke-width='1'/%3E%3Ctext x='300' y='422' font-family='monospace' font-size='20' letter-spacing='6' fill='%23ff2b2b' text-anchor='middle'%3ESCREENSHOT SLOT%3C/text%3E%3Ctext x='300' y='450' font-family='monospace' font-size='12' fill='%23555555' text-anchor='middle'%3Eimg src=builds/your-file.jpg%3C/text%3E%3C/svg%3E" alt="" loading="lazy"></div>
-          <figcaption>SHOT 02 · SKYBRIDGE AT DUSK</figcaption>
-        </figure>
-        <figure class="gi" data-lb>
-          <div class="frame a-tall"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='800'%3E%3Crect width='600' height='800' fill='%230a0a0a'/%3E%3Crect x='16' y='16' width='568' height='768' fill='none' stroke='%23202020'/%3E%3Cpath d='M300 330 v44 M278 352 h44' stroke='%23ff2b2b' stroke-width='1'/%3E%3Ctext x='300' y='422' font-family='monospace' font-size='20' letter-spacing='6' fill='%23ff2b2b' text-anchor='middle'%3ESCREENSHOT SLOT%3C/text%3E%3Ctext x='300' y='450' font-family='monospace' font-size='12' fill='%23555555' text-anchor='middle'%3Eimg src=builds/your-file.jpg%3C/text%3E%3C/svg%3E" alt="" loading="lazy"></div>
-          <figcaption>SHOT 03 · SPAWN TOWN, EAST GATE</figcaption>
-        </figure>
-        <figure class="gi sp2">
-          <div class="frame a-wide">
-            <video controls muted loop playsinline poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%230a0a0a'/%3E%3Crect x='16' y='16' width='768' height='418' fill='none' stroke='%23202020'/%3E%3Cpath d='M384 168 L428 192 L384 216 Z' fill='none' stroke='%23ff2b2b' stroke-width='1'/%3E%3Ctext x='400' y='262' font-family='monospace' font-size='20' letter-spacing='6' fill='%23ff2b2b' text-anchor='middle'%3EVIDEO CLIP SLOT%3C/text%3E%3Ctext x='400' y='290' font-family='monospace' font-size='12' fill='%23555555' text-anchor='middle'%3Eadd a source tag with your mp4%3C/text%3E%3C/svg%3E"></video>
-          </div>
-          <figcaption>CLIP 01 · 1V3 · LAST HEART</figcaption>
-        </figure>
-        <figure class="gi" data-lb>
-          <div class="frame a-tall"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='800'%3E%3Crect width='600' height='800' fill='%230a0a0a'/%3E%3Crect x='16' y='16' width='568' height='768' fill='none' stroke='%23202020'/%3E%3Cpath d='M300 330 v44 M278 352 h44' stroke='%23ff2b2b' stroke-width='1'/%3E%3Ctext x='300' y='422' font-family='monospace' font-size='20' letter-spacing='6' fill='%23ff2b2b' text-anchor='middle'%3ESCREENSHOT SLOT%3C/text%3E%3Ctext x='300' y='450' font-family='monospace' font-size='12' fill='%23555555' text-anchor='middle'%3Eimg src=builds/your-file.jpg%3C/text%3E%3C/svg%3E" alt="" loading="lazy"></div>
-          <figcaption>SHOT 04 · UNDERCITY, LAYER TWO</figcaption>
-        </figure>
-        <figure class="gi sp2">
-          <div class="frame a-wide">
-            <video controls muted loop playsinline poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450'%3E%3Crect width='800' height='450' fill='%230a0a0a'/%3E%3Crect x='16' y='16' width='768' height='418' fill='none' stroke='%23202020'/%3E%3Cpath d='M384 168 L428 192 L384 216 Z' fill='none' stroke='%23ff2b2b' stroke-width='1'/%3E%3Ctext x='400' y='262' font-family='monospace' font-size='20' letter-spacing='6' fill='%23ff2b2b' text-anchor='middle'%3EVIDEO CLIP SLOT%3C/text%3E%3Ctext x='400' y='290' font-family='monospace' font-size='12' fill='%23555555' text-anchor='middle'%3Eadd a source tag with your mp4%3C/text%3E%3C/svg%3E"></video>
-          </div>
-          <figcaption>CLIP 02 · THE DODGE THAT MADE THE CLIP</figcaption>
-        </figure>
-      </div>
-      <p class="gal-note mono rv" style="--d:.24s">MORE GETS ADDED AS IT HAPPENS</p>
-    </div>
+     <div class="gal rv" style="--d:.18s">
+  <figure class="gi sp2" data-lb>
+    <div class="frame a-wide"><img src="builds/hq.png" alt="The old nation HQ with all my past adversaries gathered inside" loading="lazy"></div>
+    <figcaption>THE OLD CAPITAL · EVERY ADVERSARY IN ONE SHOT</figcaption>
+  </figure>
+  <figure class="gi" data-lb>
+    <div class="frame a-tall"><img src="builds/spire.png" alt="The spire against the sky" loading="lazy"></div>
+    <figcaption>THE SPIRE · BUILT ON PURPOSE</figcaption>
+  </figure>
+  <figure class="gi sp2" data-lb>
+    <div class="frame a-wide"><img src="builds/range.png" alt="The mountain range, every peak placed by hand" loading="lazy"></div>
+    <figcaption>THE SPINE · EVERY PEAK PLACED BY HAND</figcaption>
+  </figure>
+  <figure class="gi" data-lb>
+    <div class="frame a-tall"><img src="builds/tree.png" alt="The elder tree" loading="lazy"></div>
+    <figcaption>THE ELDER · GREW ON ITS OWN</figcaption>
+  </figure>
+  <figure class="gi sp3" data-lb>
+    <div class="frame a-wide"><img src="builds/facility.png" alt="Inside the facility, red lights on" loading="lazy"></div>
+    <figcaption>THE RED ROOM · LIGHTS ON, NOBODY HOME</figcaption>
+  </figure>
+</div>
   </section>
 
   <!-- ============ 5 · THE SOURCE ============ -->
