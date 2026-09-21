@@ -782,12 +782,10 @@ function ensureAC(){
   const an = AC.createAnalyser(); an.fftSize = 1024;
   master.connect(an); an.connect(AC.destination);
   window.__an = an;
-
   const nb = AC.createBuffer(1, AC.sampleRate*1.5, AC.sampleRate);
   const nd = nb.getChannelData(0);
   for(let i=0;i<nd.length;i++) nd[i]=Math.random()*2-1;
   AC.__noise = nb;
-
   roomBus = AC.createGain(); roomBus.gain.value = 1;
   const cv = AC.createConvolver();
   const len = AC.sampleRate * 3;
@@ -802,7 +800,6 @@ function ensureAC(){
   const wet = AC.createGain(); wet.gain.value = .7;
   roomBus.connect(cv); cv.connect(wet); wet.connect(master);
   roomBus.connect(master);
-
   keyBus = AC.createGain(); keyBus.gain.value = 1;
   keyBus.connect(roomBus);
 }
@@ -1150,8 +1147,10 @@ function schedule(){
 
 function genreUI(){
   const g=GENRES[jz.genre];
-  $('#demoHint').textContent=g.hint;
-  $('#bpmNow').textContent=jz.genre==='room'?'NO CLOCK':(jz.genre==='ballad'?'76 BPM':'74 BPM');
+  const dh=$('#demoHint')||$('.trio-panel .demo-head .l');
+  if(dh) dh.textContent=g.hint;
+  const bp=$('#bpmNow');
+  if(bp) bp.textContent=jz.genre==='room'?'NO CLOCK':(jz.genre==='ballad'?'76 BPM':'74 BPM');
   $$('.gbtn').forEach(b=>b.classList.toggle('on',b.dataset.g===jz.genre));
 }
 
@@ -1251,7 +1250,26 @@ function chime(){
 /* ---- oscilloscope ---- */
 (function(){
   const vc=$('#visCv'), vctx=vc.getContext('2d');
-  ...
+  let vw=0, vh=0;
+  function vsize(){const DPR=Math.min(devicePixelRatio||1,2);vw=vc.clientWidth;vh=vc.clientHeight;vc.width=vw*DPR;vc.height=vh*DPR;vctx.setTransform(DPR,0,0,DPR,0,0)}
+  vsize(); addEventListener('resize',vsize);
+  const buf=new Uint8Array(512);
+  function draw(){
+    requestAnimationFrame(draw);
+    if(!jz.playing||!window.__an){ vctx.clearRect(0,0,vw,vh) ; return }
+    window.__an.getByteTimeDomainData(buf);
+    vctx.clearRect(0,0,vw,vh);
+    vctx.strokeStyle='rgba(237,237,237,.12)';
+    vctx.beginPath(); vctx.moveTo(0,vh/2); vctx.lineTo(vw,vh/2); vctx.stroke();
+    vctx.strokeStyle='#ff2b2b'; vctx.lineWidth=1.4;
+    vctx.beginPath();
+    for(let i=0;i<buf.length;i++){
+      const x=i/buf.length*vw, y=vh/2+(buf[i]-128)/128*(vh*.42);
+      i?vctx.lineTo(x,y):vctx.moveTo(x,y);
+    }
+    vctx.stroke();
+  }
+  draw();
 })();
 
 /* ================= CLOCK ================= */
@@ -1726,7 +1744,7 @@ let duelGg=()=>{};
       ctx.arc(yDraw,gyv-15+bob*.6,19,Math.PI*.75,Math.PI*2.25)
       ctx.stroke()
     }
-       ctx.save()
+    ctx.save()
     ctx.translate(xx0,gyv-20+bob)
     if(S.phase==='recover'){
       ctx.globalAlpha=.55
@@ -2085,7 +2103,6 @@ let duelGg=()=>{};
   const slots=$$('#slots .slot');
   let spoken=0,sealed=false,times=0,errToastShown=false;
 
-  /* the ledger · kept by this browser, nothing leaves the page */
   const LEDGER_KEY='xanLedger'
   function loadLedger(){ try{return JSON.parse(localStorage.getItem(LEDGER_KEY)||'[]')}catch(e){return []} }
   function saveLedger(l){ try{localStorage.setItem(LEDGER_KEY,JSON.stringify(l))}catch(e){} }
