@@ -1251,26 +1251,7 @@ function chime(){
 /* ---- oscilloscope ---- */
 (function(){
   const vc=$('#visCv'), vctx=vc.getContext('2d');
-  let vw=0, vh=0;
-  function vsize(){const DPR=Math.min(devicePixelRatio||1,2);vw=vc.clientWidth;vh=vc.clientHeight;vc.width=vw*DPR;vc.height=vh*DPR;vctx.setTransform(DPR,0,0,DPR,0,0)}
-  vsize(); addEventListener('resize',vsize);
-  const buf=new Uint8Array(512);
-  function draw(){
-    requestAnimationFrame(draw);
-    if(!jz.playing||!window.__an){ vctx.clearRect(0,0,vw,vh) ; return }
-    window.__an.getByteTimeDomainData(buf);
-    vctx.clearRect(0,0,vw,vh);
-    vctx.strokeStyle='rgba(237,237,237,.12)';
-    vctx.beginPath(); vctx.moveTo(0,vh/2); vctx.lineTo(vw,vh/2); vctx.stroke();
-    vctx.strokeStyle='#ff2b2b'; vctx.lineWidth=1.4;
-    vctx.beginPath();
-    for(let i=0;i<buf.length;i++){
-      const x=i/buf.length*vw, y=vh/2+(buf[i]-128)/128*(vh*.42);
-      i?vctx.lineTo(x,y):vctx.moveTo(x,y);
-    }
-    vctx.stroke();
-  }
-  draw();
+  ...
 })();
 
 /* ================= CLOCK ================= */
